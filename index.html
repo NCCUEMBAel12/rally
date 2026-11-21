@@ -383,6 +383,7 @@ th{font-weight:500;color:var(--muted);font-size:14px}
 .lock #swbar:not([hidden])~main .ppv>.muted{display:none}
 @media (max-height:760px){.sw header{padding-block:6px 4px}.sw .brand small{display:none}.sw #swbar{margin-bottom:6px}.sw #swbar button{min-height:34px}}
 @media (max-height:645px){.lock.sw .mrz{display:none}}
+body.fire .role,body.fire .proto{display:none}
 .stafflink{border:0;background:none;color:var(--muted);font-size:14px;min-height:44px;text-decoration:underline;text-underline-offset:4px;align-self:center}
 #cdbar{border-radius:12px;padding:8px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:700;font-size:16px;background:var(--card);border:1px solid var(--line);flex:none}
 #cdbar .mono{font-size:22px}
@@ -608,6 +609,8 @@ input[type=range]{accent-color:var(--gold);min-height:32px}
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="mt"></div>
 <div class="toast" id="toast" hidden></div>
 
+<script src="config.js"></script>
+<script src="fb.js"></script>
 <script>
 const ICON={
   golf:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 28V4l11 5-11 5"/><ellipse cx="14" cy="28" rx="9" ry="2" fill="currentColor" stroke="none" opacity=".3"/></svg>',
@@ -645,7 +648,7 @@ const luckyList=()=>S.lucky||[50,100,150]; // 第 N 位集滿的幸運兒
 const fullCount=()=>S.base.full+Object.values(S.players).filter(x=>cnt(x)===3).length;
 const nextLucky=()=>{const n=fullCount();return luckyList().filter(x=>x>n).sort((a,b)=>a-b)[0]};
 const luckyLine=()=>{const x=nextLucky();return x?`下一位幸運兒：第 ${x} 位集滿（還差 ${x-fullCount()} 位）`:''};
-const PASSPORT_URL='（正式版的護照連結）';
+const PASSPORT_URL=window.RALLY_MODE==='fire'?location.origin+location.pathname:'（正式版的護照連結）';
 const puttOn=()=>!!S.puttOn; // 高球會實體推桿加碼，預設隱藏
 const giftTotal=()=>S.giftTotal||200;
 const giftLeft=()=>Math.max(0,giftTotal()-redCount()); // 小禮限量，剩餘份數
@@ -813,10 +816,15 @@ function seed(){return{
   ],
   hostStation:'golf',giftTotal:200,redeemLog:[{no:'003',name:'雅婷',t:'10:44'}]
 }}
-let S;try{S=JSON.parse(localStorage.getItem('rally-v9'))}catch(e){}
-if(!S||!S.players)S=seed();
+const FBS=window.FB,FIRE=!!(FBS&&window.RALLY_FB&&window.RALLY_MODE==='fire'); // 正式版後端開關：網站版的 config.js 設定；預覽版永遠是單機原型
+const LS_KEY=FIRE?'rally-fb1':'rally-v9';
+const fx={ready:false,gate:{},red:{},leadSt:{},meJ:null,setJ:undefined};
+function seedFire(){return{me:null,players:{},base:{players:0,golf:0,tao:0,dragon:0,full:0,redeemed:0,byCohort:{}},regByCohort:{},fullLog:[],leads:[],hostStation:'golf',giftTotal:200,redeemLog:[]}}
+let S;try{S=JSON.parse(localStorage.getItem(LS_KEY))}catch(e){}
+if(!S||!S.players)S=FIRE?seedFire():seed();
 S.pending=S.pending||{};S.confirm=S.confirm||{};S.redeemLog=S.redeemLog||[];S.customQ=S.customQ||{};S.fullLog=S.fullLog||[];
-function save(){try{localStorage.setItem('rally-v9',JSON.stringify(S))}catch(e){}}
+function localSave(){try{localStorage.setItem(LS_KEY,JSON.stringify(S))}catch(e){}}
+function save(){localSave();if(FIRE)fireSync()}
 let role='player',ptab='passport',stab={host:'qr',admin:'overview'},game=null;
 const $=s=>document.querySelector(s),main=$('#main');
 const now=()=>new Date().toTimeString().slice(0,5);
@@ -852,11 +860,12 @@ function stampHTML(k,time,cls='',r){
    <text font-size="11" fill="${b.txt}" letter-spacing="1.5" opacity=".9" style="font-family:var(--f-mono)"><textPath href="#${id}u" startOffset="50%" text-anchor="middle">${time?'CLEARED '+time:'NCCU EMBA'}</textPath></text>
   </svg></div>`}
 function qr(el,text,size){el.innerHTML='';if(window.QRCode){new QRCode(el,{text,width:size,height:size,colorDark:'#1D2A2F',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})}else el.innerHTML='<div class="mono" style="color:#1D2A2F;padding:20px">'+text+'</div>'}
-function token(k){const w=Math.floor(Date.now()/30000);let h=0;for(const ch of k+w)h=(h*31+ch.charCodeAt(0))>>>0;return (h%1e6).toString(36).toUpperCase().padStart(4,'0')}
+function token(k){if(FIRE)return fireToken(k);const w=Math.floor(Date.now()/30000);let h=0;for(const ch of k+w)h=(h*31+ch.charCodeAt(0))>>>0;return (h%1e6).toString(36).toUpperCase().padStart(4,'0')}
 let ticker=null;function clearTick(){if(game&&game.qt)clearTimeout(game.qt);if(ticker){clearInterval(ticker);ticker=null}if(game&&game.raf)cancelAnimationFrame(game.raf);if(game&&game.iv)clearInterval(game.iv)}
 
 /* ---------------- render root ---------------- */
 function render(){
+  if(FIRE){if(role==='player'&&!me())role='onboard';if(role==='host'&&fx.ready&&fx.gateK!==S.hostStation)fireGate(S.hostStation);if(role==='host'||role==='screen'||(role==='player'&&ptab==='battle'&&!game))firePub()}
   syncScreenOpt();if(role==='screen'&&!screenOn()){role='admin';const rs=document.querySelector('option[value="cadre"]').closest('select');if(rs)rs.value='admin'}
   renderSw();syncWake();
   clearTick();updateCd();clearInterval(screenIv);document.body.classList.toggle('scr',role==='screen');
@@ -912,7 +921,7 @@ function rPassport(){
   else next=`<div class="next-h">${todo.length===1?"最後一關！過了就能領禮物":`再 ${todo.length} 關就能領禮物`}${leftChip()}</div>
      ${todo.length>=2?`<div class="go3 n${todo.length}">${todo.map(k=>`<button class="go" style="--c:${ST[k].c}" onclick="scan('${k}')"><div class="ic">${ico(k)}</div><div style="font-weight:700;font-size:15px">${ST[k].name}</div><span class="arrow">去挑戰 ›</span></button>`).join('')}</div>`:''}
      ${todo.length>=2?'':todo.map(k=>`<button class="go ${todo.length===1?'last':''}" style="--c:${ST[k].c}" onclick="scan('${k}')"><div class="ic">${ico(k)}</div><div style="min-width:0"><div style="font-weight:700">${ST[k].name}</div><div class="muted" style="font-size:14px">${MODES[k]?`${quizOf(k)[1]}・過關解鎖${miniOf(k)[1]}`:ST[k].game}</div></div><span class="arrow">去挑戰 ›</span></button>`).join('')}
-     <div class="muted" style="font-size:14px">${S.startAt&&Date.now()<S.startAt?`護照已領好！${startHM()} 開放後，到攤位掃 QR Code 開始`:'到攤位掃 QR Code 開始（原型可直接點上方按鈕）'}</div>`;
+     <div class="muted" style="font-size:14px">${S.startAt&&Date.now()<S.startAt?`護照已領好！${startHM()} 開放後，到攤位掃 QR Code 開始`:(FIRE?'到攤位後，輸入關主手機上的 4 碼過關碼':'到攤位掃 QR Code 開始（原型可直接點上方按鈕）')}</div>`;
   main.innerHTML=`<div class="stack ppv">
    <div class="pp ${n===3?'done':''}">
     <div class="pp-hd"><b>護照<span>PASSPORT</span></b><span>No. ${S.me}</span></div>
@@ -940,12 +949,14 @@ function rStations(){
     <div class="station"><div class="ic">${ico(k)}</div><div style="min-width:0"><h3>${s.name}</h3>${ms.length>1?(d?'':'<div class="muted" style="font-size:14px">先問答，過關解鎖小遊戲</div>'):''}</div>
      <span class="chip ${d?'done':''}">${d?'已過關 ✓':'未過關'}</span></div>
     <div class="modes" ${d&&miniOf(k)?'hidden':''}>${[...ms].sort((a,b)=>(a[0]==='quiz'?0:1)-(b[0]==='quiz'?0:1)).map(([m,n,dd])=>`<div class="mode" style="${m&&m!=='quiz'&&!d?'opacity:.55':''}"><b style="color:var(--c)">${m&&m!=='quiz'&&!d?'（過關解鎖）':''}${n}</b><span class="muted">${dd}</span></div>`).join('')}</div>
-    ${d&&miniOf(k)?`<div class="mrow"><button class="btn" style="background:${BADGE[k].bg};border-color:${BADGE[k].bg};color:${k==='dragon'?'#3A2400':'#fff'}" onclick="playMini('${k}')">玩${miniOf(k)[1]}${bestTxt(k)?`<small style="display:block;font-weight:500;font-size:13px;opacity:.85">${bestTxt(k)}</small>`:''}</button><button class="btn ghost" style="${xpStyle(k)}" onclick="playMini('${k}','expert')">達人挑戰${bestTxt(k+'Q')?`<small style="display:block;font-weight:500;font-size:13px;opacity:.8">${bestTxt(k+'Q')}</small>`:''}</button></div>`:`<button class="${d?'small-btn':'btn'}" onclick="scan('${k}')">${d?'已過關，再玩一次':(p.entered||{})[k]?'繼續挑戰（已掃過碼，不用重掃）':'去挑戰（原型：模擬掃碼）'}</button>`}</div>`}).join('')}
+    ${d&&miniOf(k)?`<div class="mrow"><button class="btn" style="background:${BADGE[k].bg};border-color:${BADGE[k].bg};color:${k==='dragon'?'#3A2400':'#fff'}" onclick="playMini('${k}')">玩${miniOf(k)[1]}${bestTxt(k)?`<small style="display:block;font-weight:500;font-size:13px;opacity:.85">${bestTxt(k)}</small>`:''}</button><button class="btn ghost" style="${xpStyle(k)}" onclick="playMini('${k}','expert')">達人挑戰${bestTxt(k+'Q')?`<small style="display:block;font-weight:500;font-size:13px;opacity:.8">${bestTxt(k+'Q')}</small>`:''}</button></div>`:`<button class="${d?'small-btn':'btn'}" onclick="scan('${k}')">${d?'已過關，再玩一次':(p.entered||{})[k]?'繼續挑戰（已掃過碼，不用重掃）':FIRE?'去挑戰・輸入過關碼':'去挑戰（原型：模擬掃碼）'}</button>`}</div>`}).join('')}
    <button class="stafflink" id="stf">${staffList().length?'新增工作身分':'我是工作人員（關主／兌換台／社團幹部）'}</button></div>`;
   $('#stf').onclick=()=>{pin.v='';pin.err='';role='staffLogin';$('#role').value='staffLogin';render()};
 }
 function scan(k){
-  const p0=me();p0.entered=p0.entered||{};if(!p0.entered[k]){p0.entered[k]=now();save()} // 掃過一次，這一關整場有效
+  const p0=me();p0.entered=p0.entered||{};
+  if(FIRE){if(!p0.entered[k]&&!p0.badges[k])return fireAsk(k)} // 正式版：先輸入關主畫面上的過關碼
+  else if(!p0.entered[k]){p0.entered[k]=now();save()} // 掃過一次，這一關整場有效
   game={k,phase:'intro'};
   if(me().badges[k])game.phase='already';
   render();
@@ -1056,7 +1067,7 @@ function renderGame(){
   if(game.mode==='expert')gExpert(k);else if(k==='tao'&&game.mode==='catch')gCatch();else if(k==='golf'&&game.mode==='swing')gSwing();else if(k==='dragon'&&game.mode!=='quiz')gDragon();else gQuiz(k);
 }
 function startGame(mode){Object.assign(game,{big:null,scoreTxt:null,phase:'play',raf:0,iv:0,dist:null,token:null,pinMode:false,perfect:false,dt:null,mode:mode||game.mode});render()}
-function finish(ok,msg){clearTick();if(ok&&game.practice){game.phase='pass';game.fresh=true;return render()}if(ok){const p=me();p.badges[game.k]=now();if(game.perfect){p.perfect=p.perfect||{};p.perfect[game.k]=1}if(game.dt)p.dragonT=Math.min(p.dragonT||99,+game.dt);if(cnt(p)===3&&!p.rank){p.rank=S.base.full+Object.values(S.players).filter(x=>cnt(x)===3).length;p.lucky=luckyList().includes(p.rank);S.fullLog.unshift({n:p.name.replace('（你）',''),c:p.cohort||'',t:now(),r:p.rank,lucky:p.lucky})}save();game.phase='pass';game.fresh=true;if(cnt(p)===3&&!p.redeemed){setTimeout(()=>confetti(['#1E5A43','#D9477C','#F2B705','#6FB4DC','#FFD9E5'],180,true),1100);setTimeout(showRedeem,1900)}}else{game.phase='fail';game.msg=msg}render()}
+function finish(ok,msg){clearTick();if(ok&&game.practice){game.phase='pass';game.fresh=true;return render()}if(ok){const p=me();p.badges[game.k]=now();if(game.perfect){p.perfect=p.perfect||{};p.perfect[game.k]=1}if(game.dt)p.dragonT=Math.min(p.dragonT||99,+game.dt);if(FIRE&&cnt(p)===3&&!p.fullAt){p.fullAt=Date.now();fireDerive()}if(!FIRE&&cnt(p)===3&&!p.rank){p.rank=S.base.full+Object.values(S.players).filter(x=>cnt(x)===3).length;p.lucky=luckyList().includes(p.rank);S.fullLog.unshift({n:p.name.replace('（你）',''),c:p.cohort||'',t:now(),r:p.rank,lucky:p.lucky})}save();game.phase='pass';game.fresh=true;if(cnt(p)===3&&!p.redeemed){setTimeout(()=>confetti(['#1E5A43','#D9477C','#F2B705','#6FB4DC','#FFD9E5'],180,true),1100);setTimeout(showRedeem,1900)}}else{game.phase='fail';game.msg=msg}render()}
 
 const STATION_PIN='1234'; // 原型：各關關主 PIN，正式版由管理後台設定
 const PUTT_YARDS=[2,3,5]; // 推桿墊上的標示線
@@ -1352,21 +1363,22 @@ function rOnboard(){
   s=ST[pre?'golf':ob.station],err=ob.err?`<div class="err">${ob.err}</div>`:'';
   const cover=`<div class="cover"><span class="emb" aria-hidden="true"></span><div class="lbl" style="color:inherit;opacity:.75">創友會會員大會暨理事長交接典禮</div><div class="cover-t" style="font-size:36px">社團巡禮護照</div><div class="muted" style="color:inherit;opacity:.75;font-size:15px">三個社團、三枚徽章，集滿換限量小禮，送完為止<br>活動時間 ${startHM()}–${endHM()}</div>
     <img class="banner" src="${BANNER}" alt="三個社團的吉祥物：高球會老鷹、桃園幫桃子、創友一條龍小龍"></div>`;
-  const demo=`<div class="lbl">預覽：切換進入方式</div><div class="chips"><button class="small-btn" data-s="pre" ${pre?'style="border-color:var(--ink);font-weight:700"':''}>當天提早領</button>${KEYS.map(k=>`<button class="small-btn" data-s="${k}" ${k===ob.station?'style="border-color:var(--ink);font-weight:700"':''}>${ST[k].name}</button>`).join('')}</div>`;
+  const demo=FIRE?'':`<div class="lbl">預覽：切換進入方式</div><div class="chips"><button class="small-btn" data-s="pre" ${pre?'style="border-color:var(--ink);font-weight:700"':''}>當天提早領</button>${KEYS.map(k=>`<button class="small-btn" data-s="${k}" ${k===ob.station?'style="border-color:var(--ink);font-weight:700"':''}>${ST[k].name}</button>`).join('')}</div>`;
   if(ob.mode==='new'){
     main.innerHTML=`<div class="stack">${cover}
      <div class="panel stack">
       ${pre?`<div><div class="lbl" style="color:var(--gold)">當天提早領護照</div><h3>先領好，${startHM()} 開放後到攤位直接開玩</h3></div>`:`<div class="station" style="--c:${s.c};grid-template-columns:44px 1fr"><div class="ic" style="width:44px;height:44px">${ico(ob.station)}</div><div style="min-width:0"><div class="lbl">你掃描的是</div><h3>${s.name}${SUB(ob.station)}攤位</h3></div></div>`}
       <div class="muted" style="font-size:15px">第一次參加，填好屆別和姓名就能領取護照，不需要帳號密碼。集滿後，屆別和隱藏一個字的姓名（例如 黃Ｏ明）會顯示在現場螢幕。</div>
-      <label for="oc">屆別<select class="f" id="oc">${cohortOpts('')}</select></label>
-      <label for="on">姓名<input type="text" id="on" autocomplete="name"></label>
+      <label for="oc">屆別<select class="f" id="oc">${cohortOpts(ob.c||'')}</select></label>
+      <label for="on">姓名<input type="text" id="on" autocomplete="name" value="${(ob.n||'').replace(/"/g,'&quot;')}"></label>
       ${err}
       <button class="btn" id="obtn">${pre?'領取護照':'領取護照，開始挑戰'}</button>
       <button class="small-btn" id="orc">換了手機或瀏覽器？找回我的護照</button>
-     </div>${demo}</div>`;
+     </div>${FIRE?`<div class="muted" style="font-size:14px;text-align:center">已經領過護照？請回到原本打開護照的地方（例如 LINE），不用重新領取。</div><button class="stafflink" id="ostaff">工作人員登入</button>`:''}${demo}</div>`;
     $('#obtn').onclick=()=>{const cohort=$('#oc').value,name=$('#on').value.trim();
       if(!cohort){ob.err='請選擇屆別';return rOnboard()}
       if(!name){ob.err='請填姓名';return rOnboard()}
+      if(FIRE){ob.c=cohort;ob.n=name;return fireJoin(cohort,name,pre)}
       if(dupPlayer(cohort,name)){ob.err=`${cohort} ${name} 已經領過護照了。換了手機或瀏覽器？請按下方「找回我的護照」。`;return rOnboard()}
       if(rosterHas(cohort)&&!inRoster(cohort,name)){ob.err=`會員名冊裡找不到「${cohort} ${name}」。請確認屆別和姓名用字，或請現場關主協助放行。`;return rOnboard()}
       const id='P'+String(Object.keys(S.players).length+1).padStart(3,'0'),rec=String(Math.floor(1000+Math.random()*9000));
@@ -1377,19 +1389,22 @@ function rOnboard(){
     main.innerHTML=`<div class="stack">${cover}
      <div class="panel stack"><h3>找回我的護照</h3>
       <div class="muted" style="font-size:15px">找回碼是護照最下方那一行的最後 4 位數字。忘記的話請到任一關找關主協助。</div>
-      <label for="rn">姓名<input type="text" id="rn" autocomplete="name"></label>
+      ${FIRE?`<label for="rc2">屆別<select class="f" id="rc2">${cohortOpts(ob.c||'')}</select></label>`:''}
+      <label for="rn">姓名<input type="text" id="rn" autocomplete="name" value="${(ob.n||'').replace(/"/g,'&quot;')}"></label>
       <label for="rr">找回碼<input type="text" id="rr" class="mono" inputmode="numeric" maxlength="4" placeholder="4 位數字"></label>
       ${err}
       <button class="btn" id="rbtn">找回護照</button>
       <button class="small-btn" id="rback">我是第一次參加</button>
-      <div class="muted" style="font-size:14px">原型範例：志明 / 5512</div>
+      ${FIRE?'':'<div class="muted" style="font-size:14px">原型範例：志明 / 5512</div>'}
      </div></div>`;
     $('#rbtn').onclick=()=>{const n=$('#rn').value.trim(),r=$('#rr').value.trim();
+      if(FIRE){const c=$('#rc2').value;ob.c=c;ob.n=n;if(!c||!n||!/^\d{4}$/.test(r)){ob.err='請選屆別，並填姓名和 4 位數找回碼';return rOnboard()}return fireRecover(c,n,r)}
       const hit=Object.entries(S.players).find(([id,p])=>p.name.replace('（你）','')===n&&p.rec===r);
       if(!hit){ob.err='姓名或找回碼不符，請再確認一次';return rOnboard()}
       S.me=hit[0];S.joined=1;save();ob.err='';role='player';$('#role').value='player';ptab='passport';game=null;render();toast('歡迎回來，'+n)};
     $('#rback').onclick=()=>{ob.mode='new';ob.err='';rOnboard()};
   }
+  if($('#ostaff'))$('#ostaff').onclick=()=>{pin.v='';pin.err='';role='staffLogin';render()};
   document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{ob.station=b.dataset.s;rOnboard()});
 }
 function rStaffLogin(){
@@ -1401,14 +1416,14 @@ function rStaffLogin(){
     <div class="pin-dots">${[0,1,2,3].map(i=>`<span class="${i<pin.v.length?'on':''}"></span>`).join('')}</div>
     ${pin.err?`<div class="err" style="text-align:center">${pin.err}</div>`:''}
     <div class="keypad">${['1','2','3','4','5','6','7','8','9','清除','0','⌫'].map(k=>`<button class="${k.length>1?'fn':''}" data-k="${k}">${k}</button>`).join('')}</div>
-    <div class="muted" style="font-size:14px">原型 PIN：高球會 ${pinOf('golf')}・桃園幫 ${pinOf('tao')}・創友一條龍 ${pinOf('dragon')}・兌換台 ${pinOf('redeem')}・管理後台 ${pinOf('admin')}。關主和社團幹部用自己攤位的 PIN。輸入一次，這支手機就記住。</div>
-    ${S.players[S.me]?`<button class="stafflink" id="slback">取消，回到我的護照</button>`:''}</div>`;
+    ${FIRE?'<div class="muted" style="font-size:14px">關主和社團幹部用自己攤位的 PIN。輸入一次，這支手機就記住。</div>':`<div class="muted" style="font-size:14px">原型 PIN：高球會 ${pinOf('golf')}・桃園幫 ${pinOf('tao')}・創友一條龍 ${pinOf('dragon')}・兌換台 ${pinOf('redeem')}・管理後台 ${pinOf('admin')}。關主和社團幹部用自己攤位的 PIN。輸入一次，這支手機就記住。</div>`}
+    ${S.players[S.me]?`<button class="stafflink" id="slback">取消，回到我的護照</button>`:FIRE?'<button class="stafflink" id="slback">回到領取護照</button>':''}</div>`;
   if($('#slback'))$('#slback').onclick=goPlayer;
   document.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{pin.role=b.dataset.r;pin.v='';pin.err='';rStaffLogin()});
   const ps=$('#ps');if(ps)ps.onchange=()=>pin.station=ps.value;
   document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{const k=b.dataset.k;pin.err='';
     if(k==='清除')pin.v='';else if(k==='⌫')pin.v=pin.v.slice(0,-1);else if(pin.v.length<4)pin.v+=k;
-    if(pin.v.length===4){const need=pin.role==='host'||pin.role==='cadre'?pinOf(pin.station):pinOf(pin.role);if(pin.v===need){const e=pin.role==='host'||pin.role==='cadre'?{r:pin.role,k:pin.station}:{r:pin.role};S.staff=staffList();if(!S.staff.some(x=>x.r===e.r&&x.k===e.k))S.staff.push(e);pin.v='';goStaff(e);toast('已開通「'+staffLabel(e)+'」，上方可一鍵切換');return}
+    if(pin.v.length===4){if(FIRE){const v=pin.v;pin.v='';pin.err='驗證中…';rStaffLogin();fireStaffAdd(pin.role,pin.station,v);return}const need=pin.role==='host'||pin.role==='cadre'?pinOf(pin.station):pinOf(pin.role);if(pin.v===need){const e=pin.role==='host'||pin.role==='cadre'?{r:pin.role,k:pin.station}:{r:pin.role};S.staff=staffList();if(!S.staff.some(x=>x.r===e.r&&x.k===e.k))S.staff.push(e);pin.v='';goStaff(e);toast('已開通「'+staffLabel(e)+'」，上方可一鍵切換');return}
       pin.v='';pin.err='PIN 不正確，請再試一次'}
     rStaffLogin()});
 }
@@ -1432,20 +1447,20 @@ function rHost(){
    ${heatCard(k)}
    <div class="panel who"><div><div class="lbl">想加入本社</div><div style="font-weight:700;font-size:19px">${S.leads.filter(l=>l.club===k).length} 人留下 LINE</div></div><span class="muted" style="font-size:14px">名單在「社團幹部」</span></div>
    ${roster().length?`<div class="panel stack">${stab.hostPass?`<h3>手動放行</h3>${passHTML('hp2')}`:`<button class="fold" id="hpo">名冊比對不到？手動放行<span>›</span></button>`}</div>`:''}
-   <div class="lbl">原型：切換關卡</div>
-   <div class="chips">${KEYS.map(x=>`<button class="small-btn" data-hs="${x}" ${x===k?'style="border-color:var(--ink);font-weight:700"':''}>${ST[x].name}</button>`).join('')}</div>
+   <div class="lbl proto">原型：切換關卡</div>
+   <div class="chips proto">${KEYS.map(x=>`<button class="small-btn" data-hs="${x}" ${x===k?'style="border-color:var(--ink);font-weight:700"':''}>${ST[x].name}</button>`).join('')}</div>
   </div>`;
   if($('#hpo'))$('#hpo').onclick=()=>{stab.hostPass=1;render()};bindPass('hp2');
   main.querySelectorAll('[data-hs]').forEach(b=>b.onclick=()=>{S.hostStation=b.dataset.hs;stab.hostSel=null;stab.hostMsg=null;save();render()});
   main.querySelectorAll('[data-hm]').forEach(b=>b.onclick=()=>{stab.host=b.dataset.hm;stab.hostMsg=null;render()});
   const hp=$('#hp');
   if(mode==='qr'){
-    hp.innerHTML=`<div style="font-weight:700;font-size:19px;text-align:center">請用手機相機掃這個 QR</div><div class="qrbox" id="hq"></div><div class="countdown"><div id="cd"></div></div>
-     <div style="display:flex;justify-content:space-between;font-size:15px"><span class="muted">每 30 秒換碼；掃過一次整場有效</span><span class="mono" id="tk"></span></div>
-     <button class="btn ghost" id="simscan">原型：模擬參加者掃這張碼</button>`;
-    $('#simscan').onclick=()=>{role='player';$('#role').value='player';scan(k)};
+    hp.innerHTML=`<div style="font-weight:700;font-size:19px;text-align:center">${FIRE?'請參加者輸入下方 4 碼過關碼':'請用手機相機掃這個 QR'}</div><div class="qrbox" id="hq"></div><div class="countdown"><div id="cd"></div></div>
+     <div style="display:flex;justify-content:space-between;font-size:15px"><span class="muted">每 30 秒換碼；${FIRE?'輸入一次':'掃過一次'}整場有效</span><span class="mono" id="tk" ${FIRE?'style="font-size:34px;font-weight:700;letter-spacing:.14em;line-height:1"':''}></span></div>
+     ${FIRE?'':'<button class="btn ghost" id="simscan">原型：模擬參加者掃這張碼</button>'}`;
+    if($('#simscan'))$('#simscan').onclick=()=>{role='player';$('#role').value='player';scan(k)};
     const tick=()=>{const tk=token(k),sec=30-Math.floor(Date.now()/1000)%30;$('#cd').style.width=(sec/30*100)+'%';
-      if($('#tk').textContent!==tk){$('#tk').textContent=tk;qr($('#hq'),`https://rally.example/play?s=${k}&t=${tk}`,220)}};
+      if($('#tk').textContent!==tk){$('#tk').textContent=tk;qr($('#hq'),FIRE?location.origin+location.pathname+`?s=${k}&t=${tk}`:`https://rally.example/play?s=${k}&t=${tk}`,220)}};
     tick();ticker=setInterval(tick,1000);return;
   }
   const sel=stab.hostSel&&S.pending[stab.hostSel]?stab.hostSel:null;
@@ -1634,13 +1649,13 @@ function rScreen(){
         ${feed.length?feed.map((f,i)=>`<div class="sfeed ${fresh&&!i?'new':''}"><span class="medal" style="background:var(--gold);width:30px;height:30px;font-size:13px">${f.r}</span><span><b>${f.c}</b>　${maskName(f.n)}${f.lucky?'<span class="luck">幸運兒</span>':''}${f.ex?'<span class="ex">範例</span>':''}</span><span class="mono muted">${f.t}</span></div>`).join(''):'<div class="muted">等待第一位集滿的人</div>'}
       </aside>
     </div>
-    <div class="muted scr-note">原型：畫面每 3 秒自動更新。數字含範例資料；姓名隱藏一個字。右上角選單可切回其他視角。</div>
+    <div class="muted scr-note">${FIRE?'約每分鐘自動更新；姓名隱藏一個字。':'原型：畫面每 3 秒自動更新。數字含範例資料；姓名隱藏一個字。右上角選單可切回其他視角。'}</div>
   </div>`;
   if(fresh)confetti(['#1E5A43','#D9477C','#F2B705','#ffffff'],120,true);
   const cd=()=>{const el=$('#scr-cd');if(!el)return;const t=Date.now();
     el.innerHTML=S.startAt&&t<S.startAt?`距離開放 <b class="mono">${fmtLeft(S.startAt-t)}</b>`:S.endAt?(t<S.endAt?`<span class="${S.endAt-t<=300000?'hot':''}">${S.endAt-t<=300000?'最後衝刺':'距離結束'} <b class="mono">${fmtLeft(S.endAt-t)}</b></span>`:'活動時間已結束'):`${startHM()}–${endHM()}`};
   cd();let n=0;
-  screenIv=setInterval(()=>{if(role!=='screen'){clearInterval(screenIv);return}cd();if(++n%3===0){let cur;try{cur=JSON.parse(localStorage.getItem('rally-v9'))}catch(e){}if(cur&&cur.players){S=cur;S.pending=S.pending||{};S.confirm=S.confirm||{};S.fullLog=S.fullLog||[];S.customQ=S.customQ||{};S.redeemLog=S.redeemLog||[]}
+  screenIv=setInterval(()=>{if(role!=='screen'){clearInterval(screenIv);return}cd();if(++n%3===0){let cur;if(!FIRE)try{cur=JSON.parse(localStorage.getItem(LS_KEY))}catch(e){}if(cur&&cur.players){S=cur;S.pending=S.pending||{};S.confirm=S.confirm||{};S.fullLog=S.fullLog||[];S.customQ=S.customQ||{};S.redeemLog=S.redeemLog||[]}
     const rs=cohortBoard();if(JSON.stringify([rs,S.fullLog.slice(0,6).map(f=>f.r)])!==screenSig)rScreen()}},1000);
 }
 
@@ -1648,7 +1663,7 @@ function rScreen(){
 const GAME_SAMPLE={golf:[['創8','林美玲',7],['創12','陳志豪',5],['創3','張雅婷',4],['創10','吳宗翰',3]],golfQ:[['創5','黃淑芬',19],['創12','王大明',14],['創9','李建宏',11],['創2','蔡承恩',8]],
   tao:[['創11','劉怡君',18],['創6','周文傑',16],['創13','鄭雅雯',15],['創4','許志明',13]],taoQ:[['創11','郭佳玲',17],['創7','洪俊賢',13],['創1','葉淑惠',10],['創14','曾國華',7]],
   dragon:[['創9','蘇冠宇',3.9],['創12','謝欣怡',4.3],['創5','潘建志',4.8],['創3','簡宜君',5.4]],dragonQ:[['創10','江美華',16],['創8','賴志偉',12],['創2','羅雅婷',9],['創13','方文彬',6]]};
-function gameBoard(key){const lower=key==='dragon',p=me(),b=(p.best||{})[key],rows=GAME_SAMPLE[key].map(([c,n,v])=>({c,n,v,ex:1}));
+function gameBoard(key){const lower=key==='dragon',p=me()||{},b=(p.best||{})[key],rows=FIRE?Object.entries(S.players).filter(([i,x])=>i!==S.me&&x&&x.best&&x.best[key]!=null).map(([i,x])=>({c:x.cohort||'',n:x.name,v:x.best[key]})):GAME_SAMPLE[key].map(([c,n,v])=>({c,n,v,ex:1}));
   if(b!=null)rows.push({c:p.cohort||'',n:p.name.replace('（你）',''),v:b,me:1});
   rows.sort((x,y)=>lower?x.v-y.v:y.v-x.v);return{rows,mine:rows.findIndex(r=>r.me),unit:/Q$/.test(key)?'題':key==='dragon'?'秒':key==='tao'?'顆':'分'}}
 function gameBoardHTML(k){
@@ -1665,10 +1680,10 @@ const staffList=()=>S.staff||[]; // 這支手機已開通的工作身分
 const staffLabel=e=>e.r==='host'?'關主・'+ST[e.k].name:e.r==='cadre'?'幹部・'+ST[e.k].name:e.r==='redeem'?'兌換台':'管理後台';
 const staffOn=e=>role===e.r&&(e.r==='host'?S.hostStation===e.k:e.r==='cadre'?(stab.cadre||'golf')===e.k:true);
 function goStaff(e){if(e.r==='host'){S.hostStation=e.k;stab.hostSel=null;stab.hostMsg=null}if(e.r==='cadre')stab.cadre=e.k;save();role=e.r;game=null;$('#role').value=role;render()}
-function goPlayer(){role='player';game=null;$('#role').value='player';render()}
-function renderSw(){const el=$('#swbar'),L=staffList(),show=L.length&&S.players[S.me]&&['player','host','redeem','cadre','admin'].includes(role)&&!(role==='player'&&game&&game.phase==='play');
+function goPlayer(){role=S.players[S.me]?'player':'onboard';game=null;$('#role').value=role;render()}
+function renderSw(){const el=$('#swbar'),L=staffList(),show=L.length&&(S.players[S.me]||FIRE)&&(FIRE?['player','onboard','host','redeem','cadre','admin']:['player','host','redeem','cadre','admin']).includes(role)&&!(role==='player'&&game&&game.phase==='play');
   el.hidden=!show;document.body.classList.toggle('sw',!!show);if(!show){el.innerHTML='';return}
-  el.innerHTML=`<button aria-pressed="${role==='player'}" data-sw="p">我的護照</button>`+L.map((e,i)=>`<button aria-pressed="${staffOn(e)}" data-sw="${i}">${staffLabel(e)}</button>`).join('')+`<button class="add" data-sw="add" aria-label="新增工作身分">＋</button>`;
+  el.innerHTML=`<button aria-pressed="${role==='player'||role==='onboard'}" data-sw="p">${S.players[S.me]?'我的護照':'領護照'}</button>`+L.map((e,i)=>`<button aria-pressed="${staffOn(e)}" data-sw="${i}">${staffLabel(e)}</button>`).join('')+`<button class="add" data-sw="add" aria-label="新增工作身分">＋</button>`;
   el.querySelectorAll('button').forEach(b=>b.onclick=()=>{const v=b.dataset.sw;if(v==='p')goPlayer();else if(v==='add'){pin.v='';pin.err='';role='staffLogin';$('#role').value='staffLogin';render()}else goStaff(L[+v])});
   const on=el.querySelector('[aria-pressed="true"]');if(on&&on.scrollIntoView)on.scrollIntoView({block:'nearest',inline:'nearest'})}
 let wakeLk=null; // 關主模式螢幕恆亮（不支援或被拒就算了）
@@ -1696,7 +1711,7 @@ function rBattle(){
      ${done||before?'':`<button class="btn" onclick="ptab='passport';render()">我也去集滿，幫${mine} +1</button>`}
      <button class="small-btn" id="inv">複製邀請訊息，揪同屆一起來</button></div>`:''}
    <div class="subtabs st4" style="margin:0">${[['rank','集滿榜'],['reg','報到榜'],['feed','剛剛集滿'],['game','遊戲榜']].filter(x=>x[0]!=='reg'||regOn()).map(([v,n])=>`<button aria-selected="${v===bt}" data-bt="${v}">${n}</button>`).join('')}</div>
-   ${bt==='game'?`<div class="chips">${KEYS.map(x=>`<button class="small-btn" data-gb="${x}" ${x===(stab.gb||'golf')?`style="border-color:var(--ink);font-weight:700"`:''}>${ST[x].name}</button>`).join('')}</div><div class="gbs">${gameBoardHTML(stab.gb||'golf')}</div><div class="muted" style="font-size:13px">原型為範例名單＋你的成績，正式版顯示全場即時排名</div>`:bt==='feed'?`<div class="scr-side" style="padding:8px 14px">${feed.length?feed.map(f=>`<div class="sfeed"><span class="medal" style="background:var(--gold);width:30px;height:30px;font-size:13px">${f.r}</span><span><b>${f.c}</b>　${maskName(f.n)}${f.lucky?'<span class="luck">幸運兒</span>':''}${f.ex?'<span class="ex">範例</span>':''}</span><span class="mono muted">${f.t}</span></div>`).join(''):'<div class="muted">等待第一位集滿的人</div>'}</div>`:
+   ${bt==='game'?`<div class="chips">${KEYS.map(x=>`<button class="small-btn" data-gb="${x}" ${x===(stab.gb||'golf')?`style="border-color:var(--ink);font-weight:700"`:''}>${ST[x].name}</button>`).join('')}</div><div class="gbs">${gameBoardHTML(stab.gb||'golf')}</div><div class="muted" style="font-size:13px">${FIRE?'全場排名，約每分鐘更新一次':'原型為範例名單＋你的成績，正式版顯示全場即時排名'}</div>`:bt==='feed'?`<div class="scr-side" style="padding:8px 14px">${feed.length?feed.map(f=>`<div class="sfeed"><span class="medal" style="background:var(--gold);width:30px;height:30px;font-size:13px">${f.r}</span><span><b>${f.c}</b>　${maskName(f.n)}${f.lucky?'<span class="luck">幸運兒</span>':''}${f.ex?'<span class="ex">範例</span>':''}</span><span class="mono muted">${f.t}</span></div>`).join(''):'<div class="muted">等待第一位集滿的人</div>'}</div>`:
      `<div class="scr-bars" style="padding:14px 12px">${show.length?show.map(bar).join(''):`<div class="muted">還沒有人${unit}，第一名會是哪一屆？</div>`}${rows.length>show.length?`<div class="muted" style="font-size:14px">另外 ${rows.length-show.length} 個屆別努力中</div>`:''}<div class="muted" style="font-size:13px">${reg?'報到榜：各屆已領護照的人數，當天提早領就會開始累積':'集滿榜：各屆集滿三章的人數'}</div></div>`}
   </div>`;
   main.querySelectorAll('[data-bt]').forEach(b=>b.onclick=()=>{stab.bt=b.dataset.bt;render()});
@@ -1737,8 +1752,8 @@ function rCadre(){
      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">${LST.map(([v,n])=>`<button class="small-btn" data-lid="${l.id}" data-st="${v}" style="font-size:15px;padding:10px 4px;${st(l)===v?`background:${BADGE[k].bg};color:${k==='dragon'?'#3A2400':'#fff'};border-color:transparent;font-weight:700`:''}">${n}</button>`).join('')}</div>
     </div>`}).join(''):`<div class="panel muted" style="text-align:center">${all.length?'這個狀態目前沒有人':'還沒有人登記想加入'+ST[k].name}</div>`}
    </div>
-   <div class="lbl">原型：切換社團（正式版登入後只看得到自己社團）</div>
-   <div class="chips">${KEYS.map(x=>`<button class="small-btn" data-ck="${x}" ${x===k?'style="border-color:var(--ink);font-weight:700"':''}>${ST[x].name}</button>`).join('')}</div>
+   <div class="lbl proto">原型：切換社團（正式版登入後只看得到自己社團）</div>
+   <div class="chips proto">${KEYS.map(x=>`<button class="small-btn" data-ck="${x}" ${x===k?'style="border-color:var(--ink);font-weight:700"':''}>${ST[x].name}</button>`).join('')}</div>
   </div>`;
   main.querySelectorAll('[data-ck]').forEach(b=>b.onclick=()=>{stab.cadre=b.dataset.ck;stab.cf='all';render()});
   main.querySelectorAll('[data-cf]').forEach(b=>b.onclick=()=>{stab.cf=b.dataset.cf;render()});
@@ -1760,14 +1775,14 @@ function rRedeem(){
    <div class="panel stack" style="gap:8px"><div class="who"><div><div class="lbl">剩餘禮物</div><div class="kpi"><span class="n">${left}</span> 份</div></div><span class="muted mono">已兌 ${redeemedN} / ${giftTotal()}</span></div>
     <div class="countdown" style="height:8px"><div style="width:${Math.max(0,left)/giftTotal()*100}%;background:${left<20?'var(--bad)':'var(--gold)'};transition:none"></div></div>
     ${left<=0?'<div style="color:var(--bad);font-weight:700">禮物已發完，請通知主辦</div>':left<20?'<div style="color:var(--bad);font-weight:700">禮物快發完了，請通知主辦</div>':''}</div>
-   <div class="vf" id="rvf">${v?`<div class="vres ${v.ok?'ok':'bad'}"><b>${v.h}</b>${v.lucky?'<span class="luck" style="font-size:18px">幸運兒・請加發加碼禮</span>':''}<span>${v.m}</span>${v.say?`<em>可以說：「${v.say}」</em>`:''}<small>3 秒後繼續掃描</small></div>`:'<div class="box"></div><div class="scanline"></div><div class="cap">相機掃描中，對準參加者護照頁的兌換 QR</div>'}</div>
+   <div class="vf" id="rvf">${v?`<div class="vres ${v.ok?'ok':'bad'}"><b>${v.h}</b>${v.lucky?'<span class="luck" style="font-size:18px">幸運兒・請加發加碼禮</span>':''}<span>${v.m}</span>${v.say?`<em>可以說：「${v.say}」</em>`:''}<small>3 秒後繼續掃描</small></div>`:(FIRE?'<div class="cap" style="position:static;padding:26px 14px;font-size:16px">輸入參加者護照上的兌換號碼，或在下方點名字</div>':'<div class="box"></div><div class="scanline"></div><div class="cap">相機掃描中，對準參加者護照頁的兌換 QR</div>')}</div>
    <div class="panel stack">
     <button class="fold" id="mf">掃不到？手動輸入號碼<span>${stab.manual?'收合':'展開 ›'}</span></button>
     ${stab.manual?`<div style="display:grid;grid-template-columns:1fr auto;gap:8px"><input type="text" id="rc" class="mono" inputmode="numeric" placeholder="例如 001" aria-label="兌換號碼" style="font-size:22px;letter-spacing:.1em"><button class="btn" id="rb" style="width:auto">兌換</button></div>`:''}
    </div>
    ${log.length?`<div class="panel stack" style="gap:6px"><div class="lbl">剛剛兌換（發錯時核對用）</div>${log.map(l=>`<div class="who" style="font-size:16px"><span><b class="mono">${l.no}</b>　${l.name}</span><span class="mono muted">${l.t}</span></div>`).join('')}</div>`:''}
-   <div class="lbl">原型：模擬掃到這些參加者的 QR</div>
-   <div class="chips">${Object.entries(S.players).map(([id,p])=>`<button class="small-btn" data-c="${rno(id)}">${rno(id)} ${p.name}（${cnt(p)}章${p.redeemed?'・已兌':''}）</button>`).join('')}</div>
+   <div class="lbl">${FIRE?'集滿待領・點名字即可兌換':'原型：模擬掃到這些參加者的 QR'}</div>
+   <div class="chips">${Object.entries(S.players).filter(([id,p])=>!FIRE||(cnt(p)===3&&!p.redeemed)).map(([id,p])=>`<button class="small-btn" data-c="${rno(id)}">${rno(id)} ${p.name}（${cnt(p)}章${p.redeemed?'・已兌':''}）</button>`).join('')}</div>
   </div>`;
   const go=c=>{lastVerdict=verify(c.trim());if(lastVerdict.ok){save();confetti(['#ffffff','#D9AE4E','#2E7A4C'],60,false)}clearTimeout(verdictTimer);verdictTimer=setTimeout(()=>{lastVerdict=null;if(role==='redeem')render()},3000);render()};
   $('#mf').onclick=()=>{stab.manual=!stab.manual;render()};
@@ -1777,7 +1792,7 @@ function rRedeem(){
 function verify(code){
   const d=(code.match(/\d+/)||[''])[0];
   if(!d)return{ok:false,h:'請輸入兌換號碼',m:'號碼在參加者「我的護照」頁的 QR 下方。'};
-  const id='P'+d.padStart(3,'0'),p=S.players[id];
+  const id=FIRE?d.padStart(4,'0'):'P'+d.padStart(3,'0'),p=S.players[id];
   if(!p)return{ok:false,h:`查無 ${d.padStart(3,'0')} 號`,m:'請再確認一次參加者畫面上的號碼。'};
   if(p.redeemed)return{ok:false,h:'已經兌換過',m:`${p.name} 已於 ${p.redeemed} 領取，每人限領一次。`};
   const n=cnt(p);if(n<3)return{ok:false,h:`只集了 ${n} 章`,m:`還差：${KEYS.filter(k=>!p.badges[k]).map(k=>ST[k].name).join('、')}`};
@@ -1793,7 +1808,7 @@ function rAdmin(){
   if(t==='overview'){
     const players=S.base.players+ps.length,full=S.base.full+ps.filter(p=>cnt(p)===3).length,red=S.base.redeemed+ps.filter(p=>p.redeemed).length;
     const per=KEYS.map(k=>[k,passCount(k)]).sort((a,b)=>b[1]-a[1]);
-    ad.innerHTML=`<div class="muted" style="font-size:14px">數字含範例資料<span class="ex">範例</span>，預估參加 200 人</div>
+    ad.innerHTML=`<div class="muted" style="font-size:14px">${FIRE?'即時數字':'數字含範例資料<span class="ex">範例</span>'}，預估參加 200 人</div>
      <div class="kpis"><div class="panel kpi"><div class="lbl">已發護照</div><div class="n">${players}</div><div class="muted" style="font-size:14px">預估 200 人的 ${Math.round(players/2)}%</div></div>
      <div class="panel kpi"><div class="lbl">集滿 3 章</div><div class="n">${full}</div><div class="muted" style="font-size:14px">完成率 ${Math.round(full/players*100)}%</div></div>
      <div class="panel kpi"><div class="lbl">已兌換</div><div class="n">${red}</div><div class="muted" style="font-size:14px">待兌換 ${full-red} 人</div></div>
@@ -1816,7 +1831,7 @@ function rAdmin(){
        ${lines.slice(2,-1).map(l=>{const i=l.indexOf('：');return `<div style="font-size:16px"><b>${l.slice(0,i)}</b><br>${l.slice(i+1)}</div>`}).join('')}
        <div class="muted" style="font-size:14px">姓名隱藏一個字。這張卡可以直接截圖發到群組。</div></div>
      <button class="btn" id="rpc">複製戰報文字</button>
-     <div class="muted" style="font-size:14px">數字含範例資料<span class="ex">範例</span>。活動結束後再開這一頁，內容會是當天的最終結果。可以在文字後面補上三個社團的加入方式再發出。</div>`;
+     <div class="muted" style="font-size:14px">${FIRE?'':'數字含範例資料<span class="ex">範例</span>。'}活動結束後再開這一頁，內容會是當天的最終結果。可以在文字後面補上三個社團的加入方式再發出。</div>`;
     $('#rpc').onclick=()=>copyText(lines.join('\n'),'戰報文字');
   }else if(t==='board'){
     const bd=stab.bd||'fast',E=Object.values(S.players);
@@ -1831,7 +1846,7 @@ function rAdmin(){
      <div class="chips">${Object.entries(B).map(([k,[l]])=>`<button class="small-btn" data-bd="${k}" ${k===(B[bd]?bd:'fast')?'style="border-color:var(--ink);font-weight:700"':''}>${l}</button>`).join('')}</div>
      <div class="panel stack"><div><h3>${title}</h3><div class="muted" style="font-size:14px">${note}</div></div>
       ${rows.length?rows.slice(0,5).map(([p,v],i)=>`<div class="rank"><span class="medal m${i+1}">${i+1}</span><span><b>${p.name}</b> <span class="muted" style="font-size:14px">${p.cohort||''}</span></span><span class="mono" style="font-weight:700">${fmt(v)}</span></div>`).join(''):'<div class="muted">還沒有人上榜</div>'}
-      <div class="muted" style="font-size:14px">活動尾聲可以請主持人唸榜、加碼頒小獎。榜單只含原型中的範例參加者。</div></div>`;
+      <div class="muted" style="font-size:14px">活動尾聲可以請主持人唸榜、加碼頒小獎。${FIRE?'':'榜單只含原型中的範例參加者。'}</div></div>`;
     ad.querySelectorAll('[data-bd]').forEach(b=>b.onclick=()=>{stab.bd=b.dataset.bd;render()});
   }else if(t==='roster'){
     const f=stab.rf||'all',rows=Object.entries(S.players).map(([id,p])=>({id,p,n:cnt(p),clubs:[...new Set(S.leads.filter(l=>l.pid===id).map(l=>l.club))]}));
@@ -1844,7 +1859,7 @@ function rAdmin(){
        <td>${p.redeemed?`<span class="chip done">已領 ${p.redeemed}</span>`:cnt(p)===3?'<span class="chip" style="border-color:var(--gold);color:var(--gold)">待領</span>':'<span class="muted">—</span>'}</td>
        <td>${clubs.length?clubs.map(c=>`<span class="chip" style="color:${ST[c].c};border-color:currentColor;margin-right:4px">${ST[c].name}</span>`).join(''):'<span class="muted">—</span>'}</td></tr>`).join(''):
        `<tr><td colspan="5" class="muted" style="text-align:center;padding:18px">這個篩選目前沒有人</td></tr>`}
-     </tbody></table></div><div class="muted" style="font-size:14px">過關欄：實心為已過關（高＝高球會、桃＝桃園幫、龍＝創友一條龍）。名冊只列出原型中的範例參加者；總覽的人數另含範例統計。正式版可匯出 Excel。</div></div>`;
+     </tbody></table></div><div class="muted" style="font-size:14px">過關欄：實心為已過關（高＝高球會、桃＝桃園幫、龍＝創友一條龍）。${FIRE?'':'名冊只列出原型中的範例參加者；總覽的人數另含範例統計。正式版可匯出 Excel。'}</div></div>`;
     ad.querySelectorAll('[data-rf]').forEach(b=>b.onclick=()=>{stab.rf=b.dataset.rf;render()});
   }else if(t==='bank'){
     const bk=stab.bank||'golf',bf=stab.bf||'club',QB=qPool(bk),F={club:['社團限定',q=>q.club],know:['知識題',q=>!q.club&&!q.fun],fun:['趣味題',q=>q.fun&&!q.club]},list=QB.filter(F[bf][1]);
@@ -1902,7 +1917,7 @@ function rAdmin(){
         <button class="btn" id="ri">匯入</button>
         <div style="display:flex;gap:8px"><button class="small-btn" id="rsm">載入範例名冊</button>${R.length?'<button class="small-btn" id="rcl">清除名冊</button>':''}</div>
         <div id="rcc" hidden class="stack"><div style="font-size:15px">確定清除整份名冊嗎？已領的護照不受影響。</div><div style="display:flex;gap:8px"><button class="btn" id="rcy">確定清除</button><button class="btn ghost" id="rcn">取消</button></div></div>
-        <div class="muted" style="font-size:14px">可直接從 Excel 或 Google 試算表複製兩欄貼上。原型的名冊只存在這支裝置；正式版會放在後端，不會出現在網頁裡。</div>`:passHTML('ap')}</div>`;
+        <div class="muted" style="font-size:14px">可直接從 Excel 或 Google 試算表複製兩欄貼上。${FIRE?'注意：名冊比對在正式版尚未啟用。現在匯入的名冊只存在這支裝置，不會影響其他人領護照。':'原型的名冊只存在這支裝置；正式版會放在後端，不會出現在網頁裡。'}</div>`:passHTML('ap')}</div>`;
       ad.querySelectorAll('[data-ros]').forEach(b=>b.onclick=()=>{stab.ros=b.dataset.ros;render()});
       bindPass('ap');
       if($('#ri')){$('#ri').onclick=()=>{const t=$('#rt').value;if(!t.trim()){toast('請先貼上名冊');$('#rt').focus();return}const r=importRoster(t);toast(`匯入 ${r.ok} 人${r.dup?`，重複 ${r.dup} 筆略過`:''}${r.bad?`，${r.bad} 行看不懂`:''}`);render()};
@@ -1932,7 +1947,7 @@ function rAdmin(){
        <div class="panel stack"><div class="who"><div><h3>大螢幕・屆別應援團</h3><div class="muted" style="font-size:14px">${screenOn()?'目前顯示：身分選單可切換到大螢幕畫面':'目前隱藏：身分選單不會出現大螢幕'}</div></div><button class="small-btn" id="sct">${screenOn()?'隱藏':'開啟'}</button></div></div>
        <div class="panel stack"><h3>工作人員 PIN</h3><div class="muted" style="font-size:14px">每組 4 位數。關主和社團幹部共用自己攤位的 PIN；改了之後，已開通的手機不受影響。</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${[['golf','高球會'],['tao','桃園幫'],['dragon','創友一條龍'],['redeem','兌換台'],['admin','管理後台']].map(([k,l])=>`<label style="font-size:14px">${l}<input class="f mono" data-pin="${k}" inputmode="numeric" maxlength="4" value="${pinOf(k)}" style="font-size:18px;letter-spacing:.2em"></label>`).join('')}</div></div>
-       <div class="panel stack"><h3>重設原型資料</h3><div class="muted" style="font-size:15px">清除過關、兌換、登記紀錄和自訂題目，回到初始範例。</div>
+       <div class="panel stack"><h3>${FIRE?'清除全部護照（測試完歸零）':'重設原型資料'}</h3><div class="muted" style="font-size:15px">${FIRE?'刪除伺服器上所有護照、兌換紀錄和招募名單，所有人都要重新領護照。活動當天請勿使用。':'清除過關、兌換、登記紀錄和自訂題目，回到初始範例。'}</div>
        <button class="btn ghost" id="rs">重設</button><div id="rsc" hidden class="stack"><div style="font-size:15px">確定要重設嗎？</div><div style="display:flex;gap:8px"><button class="btn" id="rsy">確定重設</button><button class="btn ghost" id="rsn">取消</button></div></div></div>`;
       main.querySelectorAll('[data-pin]').forEach(i=>i.onchange=()=>{const v=i.value.trim();if(!/^\d{4}$/.test(v)){toast('PIN 需要 4 位數字');i.value=pinOf(i.dataset.pin);return}S.pins=S.pins||{};S.pins[i.dataset.pin]=v;save();toast('PIN 已更新')});
       $('#sct').onclick=()=>{S.screenOn=!S.screenOn;save();toast(S.screenOn?'大螢幕已開啟':'大螢幕已隱藏');render()};
@@ -1940,11 +1955,240 @@ function rAdmin(){
       $('#pt').onclick=()=>{S.puttOn=!S.puttOn;save();toast(S.puttOn?'推桿加碼已開啟':'推桿加碼已隱藏');render()};
       $('#rs').onclick=()=>{$('#rsc').hidden=false;$('#rs').hidden=true};
       $('#rsn').onclick=()=>render();
-      $('#rsy').onclick=()=>{S=seed();S.pending={};S.confirm={};S.customQ={};save();lastVerdict=null;toast('已重設');render()};
+      $('#rsy').onclick=()=>{if(FIRE){$('#rsy').disabled=true;fireWipe().then(n=>{toast('已清除 '+n+' 本護照');render()}).catch(e=>{console.warn(e);toast('清除失敗，請確認網路和管理後台身分');render()});return}S=seed();S.pending={};S.confirm={};S.customQ={};save();lastVerdict=null;toast('已重設');render()};
     }
     ad.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>{stab.set=b.dataset.set;render()});
   }
 }
+/* ================= 正式版後端：Firebase（Firestore） =================
+   只有在網站版（config.js 設定 RALLY_MODE='fire'）才會啟用；預覽版維持單機原型。
+   資料分工：自己的護照即時同步；排行榜讀工作人員手機定時發布的快照；兌換台／後台／幹部的手機讀全部護照。 */
+const SYNCK=['badges','best','perfect','dragonT','fullAt','pre'];           // 護照裡會同步到伺服器的欄位（entered 由 fireEnter 單獨寫）
+const SETK=['startAt','endAt','startHM','endHM','giftTotal','lucky','regOn','screenOn','links','customQ']; // 全場共用的活動設定
+const GCH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const mkCode=()=>Array.from({length:4},()=>GCH[Math.floor(Math.random()*GCH.length)]).join('');
+const FD=(...p)=>FBS.doc(fx.db,...p);
+const withTimeout=(pr,ms)=>Promise.race([pr,new Promise((_,rej)=>setTimeout(()=>rej({code:'timeout'}),ms))]);
+const ckOf=(cohort,name)=>(cohort+'｜'+normName(name)).replace(/\//g,'／').slice(0,80);
+const meSync=p=>{const o={};SYNCK.forEach(k=>{if(p[k]!==undefined)o[k]=p[k]});return o};
+const setPick=()=>{const o={};SETK.forEach(k=>{if(S[k]!==undefined&&S[k]!==null)o[k]=S[k]});return JSON.stringify(o)};
+const hmOf=ms=>ms?new Date(ms).toTimeString().slice(0,5):'';
+const staffHas=r=>staffList().some(e=>e.r===r);
+
+function fireBoot(){ // 同步執行：決定第一個畫面
+  document.body.classList.add('fire');
+  const q=new URLSearchParams(location.search),s=q.get('s'),t=q.get('t');
+  if(s&&KEYS.includes(s)&&t){fx.pend={k:s,t:String(t)};ob.station=s;try{history.replaceState(null,'',location.pathname+location.hash)}catch(e){}}else ob.station='pre';
+  ob.mode='new';stab.manual=true; // 兌換台：正式版預設就開著號碼輸入框
+  if(S.me&&S.players[S.me]){role='player';fx.meJ=JSON.stringify(meSync(S.players[S.me]))}else{S.me=null;role='onboard'}
+  fireInit();
+}
+async function fireInit(){
+  try{
+    if(!fx.app){fx.app=FBS.initializeApp(window.RALLY_FB);fx.auth=FBS.getAuth(fx.app);
+      try{fx.db=FBS.initializeFirestore(fx.app,{localCache:FBS.persistentLocalCache({tabManager:FBS.persistentMultipleTabManager()})})}catch(e){fx.db=FBS.getFirestore(fx.app)}}
+    await new Promise(res=>{const un=FBS.onAuthStateChanged(fx.auth,u=>{un();res(u)})});
+    if(!fx.auth.currentUser)await FBS.signInAnonymously(fx.auth);
+    fx.uid=fx.auth.currentUser.uid;fx.ready=true;
+  }catch(e){console.error('[rally] 連線失敗',e);if(!fx.warned){fx.warned=1;toast('連不上伺服器，請檢查網路')}setTimeout(fireInit,5000);return}
+  // 活動設定：全場共用，管理後台改了大家都會收到
+  FBS.onSnapshot(FD('meta','config'),s=>{fx.metaLoaded=true;if(!s.exists()){fx.setJ=null;return}
+    const j=s.data().j||'{}';if(j===fx.setJ)return;fx.setJ=j;let c={};try{c=JSON.parse(j)}catch(e){}
+    SETK.forEach(k=>{if(k in c)S[k]=c[k];else delete S[k]});localSave();softRender()},e=>console.warn('[rally] meta',e));
+  if(!S.me){try{const qs=await FBS.getDocs(FBS.query(FBS.collection(fx.db,'players'),FBS.where('owner','==',fx.uid)));if(qs.size&&role==='onboard'&&!S.me)await fireAdopt(qs.docs[0].id)}catch(e){console.warn('[rally] adopt',e)}}
+  fireMe();await fireStaffStart();firePub(true);if(staffList().length)render();
+  if(fx.pend&&S.me&&S.players[S.me]){const e=fx.pend;fx.pend=null;fireEnter(e.k,e.t)}
+  setInterval(fireTick,10000);
+}
+/* ---------- 自己的護照 ---------- */
+function fireMe(){
+  if(fx.unMe){fx.unMe();fx.unMe=null}
+  const pid=S.me;if(!pid||!fx.ready)return;
+  const gone=msg=>{delete S.players[pid];if(S.me===pid){S.me=null;S.joined=0}fx.meJ=null;localSave();if(fx.unMe){fx.unMe();fx.unMe=null}if(['player'].includes(role)){role='onboard';game=null;render()}toast(msg)};
+  fx.unMe=FBS.onSnapshot(FD('players',pid),s=>{
+    if(!s.exists()){if(s.metadata.fromCache)return;return gone('這本護照已被清除，請重新領取')}
+    const d=s.data(),cur=S.players[pid]||(S.players[pid]={});
+    if(d.owner&&d.owner!==fx.uid)return gone('這本護照已在另一支手機開啟');
+    if(s.metadata.hasPendingWrites)d.entered=cur.entered||{};   // 過關碼還沒被伺服器確認前，不算進攤位
+    Object.keys(cur).forEach(k=>{if(!(k in d)&&!['rec','seen','rank','lucky'].includes(k))delete cur[k]});
+    Object.assign(cur,d);fx.meJ=JSON.stringify(meSync(cur));fireDerive();localSave();softRender();
+  },e=>{if(e.code==='permission-denied')gone('這本護照已在另一支手機開啟');else console.warn('[rally] me',e)});
+}
+function fireFail(e,what){console.warn('[rally] 同步失敗',what,e);
+  if(e&&e.code==='permission-denied'){toast('有一筆資料沒有同步成功，已還原');if(what==='me'&&S.me)FBS.getDocFromServer(FD('players',S.me)).catch(()=>{})}}
+/* ---------- 每次 save() 之後：把本機的變動送上去 ---------- */
+function fireSync(){
+  if(!fx.ready)return;
+  const pid=S.me,p=pid&&S.players[pid];
+  if(p&&fx.meJ!==null&&fx.meJ!==undefined){const cur=meSync(p),js=JSON.stringify(cur);
+    if(js!==fx.meJ){const prev=JSON.parse(fx.meJ),upd={};SYNCK.forEach(k=>{if(cur[k]!==undefined&&JSON.stringify(cur[k])!==JSON.stringify(prev[k]))upd[k]=cur[k]});
+      fx.meJ=js;if(Object.keys(upd).length)FBS.updateDoc(FD('players',pid),upd).catch(e=>fireFail(e,'me'))}}
+  // 「我有興趣加入」：自己新增的送上去
+  (S.leads||[]).forEach(l=>{if(l.pid&&l.pid===pid&&!l.fid&&!l.ex&&!l.sending){l.sending=1;
+    FBS.addDoc(FBS.collection(fx.db,'leads'),{uid:fx.uid,pid,club:l.club,cohort:l.cohort||'',name:l.name||'',line:l.line||'',t:l.t||now(),st:l.st||'todo',at:Date.now()})
+      .then(r=>{l.fid=r.id;delete l.sending;localSave()}).catch(e=>{delete l.sending;fireFail(e,'lead')})}});
+  if(fx.full){
+    // 兌換台：本機剛標成已兌換的護照，送上去；被擋下就還原並提示
+    Object.entries(S.players).forEach(([id,q])=>{if(q.redeemed&&fx.red[id]===null){fx.red[id]=q.redeemed;
+      FBS.updateDoc(FD('players',id),{redeemed:q.redeemed,redeemedBy:fx.uid}).catch(e=>{q.redeemed=null;fx.red[id]=null;fireDerive();
+        lastVerdict={ok:false,h:'兌換沒有成功',m:e&&e.code==='permission-denied'?'這本護照可能剛被另一台兌換，或資料還沒同步，請再確認一次。':'網路不穩，請再試一次。'};
+        clearTimeout(verdictTimer);verdictTimer=setTimeout(()=>{lastVerdict=null;if(role==='redeem')render()},5000);if(role==='redeem')render()})}});
+    // 社團幹部：聯繫狀態
+    (S.leads||[]).forEach(l=>{if(l.fid&&fx.leadSt[l.fid]!==undefined&&fx.leadSt[l.fid]!==l.st){fx.leadSt[l.fid]=l.st;FBS.updateDoc(FD('leads',l.fid),{st:l.st}).catch(e=>fireFail(e,'leadSt'))}});
+  }
+  if(staffHas('admin')&&fx.metaLoaded){const js=setPick();if(js!==fx.setJ){fx.setJ=js;FBS.setDoc(FD('meta','config'),{j:js,t:Date.now()}).catch(e=>fireFail(e,'meta'))}
+    if(fx.pinsJ&&S.pins){const pj=JSON.stringify(Object.assign({},DEF_PINS,S.pins));if(pj!==fx.pinsJ){fx.pinsJ=pj;FBS.setDoc(FD('secret','pins'),JSON.parse(pj)).catch(e=>fireFail(e,'pins'))}}}
+}
+/* ---------- 排名、戰報：由手上的護照資料推算 ---------- */
+function fireDerive(){
+  const full=Object.entries(S.players).filter(([i,p])=>p&&p.badges&&cnt(p)===3).sort((a,b)=>(a[1].fullAt||9e15)-(b[1].fullAt||9e15)),L=luckyList();
+  Object.values(S.players).forEach(p=>{if(p){delete p.rank;delete p.lucky}});
+  full.forEach(([i,p],n)=>{p.rank=n+1;p.lucky=L.includes(n+1)});
+  S.fullLog=full.slice().reverse().slice(0,30).map(([i,p])=>({n:p.name,c:p.cohort||'',t:hmOf(p.fullAt)||p.badges.dragon||'',r:p.rank,lucky:p.lucky}));
+  S.redeemLog=Object.entries(S.players).filter(([i,p])=>p&&p.redeemed).sort((a,b)=>String(b[1].redeemed).localeCompare(String(a[1].redeemed))).slice(0,10).map(([i,p])=>({no:rno(i),name:p.name,t:p.redeemed}));
+}
+/* ---------- 排行榜快照（參加者、關主用） ---------- */
+async function firePub(force){
+  if(!fx.ready||fx.full)return;
+  if(!force&&Date.now()-(fx.pubAt||0)<45000)return;fx.pubAt=Date.now();
+  try{const s=await FBS.getDoc(FD('pub','board'));if(!s.exists())return;const d=s.data();if(d.t===fx.pubT)return;fx.pubT=d.t;
+    const arr=JSON.parse(d.j||'[]'),mine=S.me&&S.players[S.me],next={};
+    arr.forEach(a=>{next[a[0]]={name:a[1],cohort:a[2],badges:a[3]||{},redeemed:a[4]||null,fullAt:a[5]||0,best:a[6]||undefined,dragonT:a[7]||undefined,perfect:a[8]||undefined}});
+    if(mine)next[S.me]=mine;S.players=next;fireDerive();localSave();softRender();
+  }catch(e){console.warn('[rally] pub',e)}
+}
+function firePublish(){
+  const arr=Object.entries(S.players).filter(([i,p])=>p&&p.name).map(([i,p])=>[i,p.name,p.cohort||'',p.badges||{},p.redeemed||0,p.fullAt||0,p.best||0,p.dragonT||0,p.perfect||0]);
+  fx.pubSent=Date.now();FBS.setDoc(FD('pub','board'),{t:Date.now(),n:arr.length,j:JSON.stringify(arr)}).catch(e=>console.warn('[rally] publish',e));
+}
+function fireTick(){
+  if(!fx.ready)return;
+  if(fx.full){if((fx.dirtyAt||0)>(fx.pubSent||0)&&Date.now()-(fx.pubSent||0)>20000)firePublish()}
+  else if(role==='host'||role==='screen'||(role==='player'&&ptab==='battle'&&!game))firePub();
+  if(role==='host'&&fx.gateK)fireGateTop(fx.gateK);
+}
+/* ---------- 工作人員 ---------- */
+async function fireStaffStart(){
+  if(!fx.ready)return;
+  try{const s=await FBS.getDoc(FD('staff',fx.uid));fx.staffR=s.exists()?(s.data().r||{}):{}}catch(e){console.warn('[rally] staff',e);if(!fx.staffR)return}
+  const n0=staffList().length;S.staff=staffList().filter(e=>fx.staffR[e.k||e.r]);if(S.staff.length!==n0)localSave();
+  if(S.staff.some(e=>['redeem','admin','cadre'].includes(e.r))&&!fx.full){fx.full=true;
+    FBS.onSnapshot(FBS.collection(fx.db,'players'),qs=>{const mine=S.me&&S.players[S.me],next={};
+      qs.forEach(d=>{const v=d.data();next[d.id]=v;if(!d.metadata.hasPendingWrites)fx.red[d.id]=v.redeemed||null;else if(!(d.id in fx.red))fx.red[d.id]=null});
+      if(mine)next[S.me]=mine;S.players=next;fx.dirtyAt=Date.now();fireDerive();softRender()},e=>{console.warn('[rally] players',e);fx.full=false});
+    FBS.onSnapshot(FBS.collection(fx.db,'leads'),qs=>{const arr=[];qs.forEach(d=>{const v=d.data();arr.push(Object.assign({},v,{id:d.id,fid:d.id}));if(!d.metadata.hasPendingWrites)fx.leadSt[d.id]=v.st});
+      arr.sort((a,b)=>(b.at||0)-(a.at||0));S.leads=arr;softRender()},e=>console.warn('[rally] leads',e))}
+  if(staffHas('admin')&&!fx.pinsJ){try{const s=await FBS.getDoc(FD('secret','pins'));if(s.exists()){S.pins=s.data();fx.pinsJ=JSON.stringify(Object.assign({},DEF_PINS,S.pins))}}catch(e){console.warn('[rally] pins',e)}}
+  if(!staffHas('admin')&&S.pins){delete S.pins}
+  if(staffHas('admin'))fireSync();
+}
+async function fireStaffAdd(r0,st,v){
+  const st2=(r0==='host'||r0==='cadre'),key=st2?st:r0,e=st2?{r:r0,k:st}:{r:r0};
+  const back=msg=>{pin.err=msg;if(role==='staffLogin')rStaffLogin()};
+  if(!fx.ready)return back('連線中，請稍候再試');
+  if(!fx.staffR)await fireStaffStart();
+  const tryset=r=>withTimeout(FBS.setDoc(FD('staff',fx.uid),{r,at:Date.now()}),9000);
+  try{let r=Object.assign({},fx.staffR||{},{[key]:v});
+    try{await tryset(r)}catch(e1){if(e1.code!=='permission-denied'||Object.keys(r).length===1)throw e1;r={[key]:v};await tryset(r)} // 其他身分的 PIN 可能改過：只保留這一個再試
+    fx.staffR=r;S.staff=staffList().filter(x=>r[x.k||x.r]);if(!S.staff.some(x=>x.r===e.r&&x.k===e.k))S.staff.push(e);localSave();pin.err='';
+    await fireStaffStart();goStaff(e);toast('已開通「'+staffLabel(e)+'」，上方可一鍵切換');
+  }catch(err){back(err&&err.code==='permission-denied'?'PIN 不正確，請再試一次':'網路不穩，請再試一次')}
+}
+/* ---------- 關主：過關碼 ---------- */
+function fireGate(k){
+  if(!fx.ready)return;if(fx.unGate){fx.unGate();fx.unGate=null}fx.gateK=k;
+  fx.unGate=FBS.onSnapshot(FD('gate',k),s=>{fx.gate[k]=(s.exists()&&s.data().codes)||{};fireGateTop(k)},e=>console.warn('[rally] gate',e));
+}
+function fireGateTop(k){ // 一次備好後面兩小時的碼；剩不到半小時就補，順便清掉過期的
+  const c=fx.gate[k];if(!c||!fx.ready)return;const s=Math.floor(Date.now()/30000);let last=s-1;while(c[String(last+1)])last++;
+  fx.gateW=fx.gateW||{};if(last-s>=60||Date.now()-(fx.gateW[k]||0)<8000)return;fx.gateW[k]=Date.now();
+  const add={};for(let i=s-1;i<=s+240;i++)if(!c[String(i)])add[String(i)]=mkCode();
+  const old=Object.keys(c).filter(x=>+x<s-6).slice(0,300);
+  FBS.setDoc(FD('gate',k),{codes:add},{merge:true}).then(()=>{if(old.length){const u={};old.forEach(x=>u['codes.'+x]=FBS.deleteField());return FBS.updateDoc(FD('gate',k),u)}}).catch(e=>console.warn('[rally] gate write',e));
+}
+const fireToken=k=>(fx.gate[k]||{})[String(Math.floor(Date.now()/30000))]||'····';
+/* ---------- 參加者：進攤位 ---------- */
+async function fireEnter(k,t){
+  const p=me();if(!p)return false;p.entered=p.entered||{};
+  if(p.entered[k]||p.badges[k]){game={k,phase:p.badges[k]?'already':'intro'};render();return true}
+  if(!fx.ready){toast('連線中，請稍候再試');return false}
+  t=String(t||'').trim().toUpperCase();toast('確認過關碼…');
+  try{const e={t,at:Date.now()};await withTimeout(FBS.updateDoc(FD('players',S.me),{['entered.'+k]:e}),9000);
+    p.entered[k]=e;localSave();$('#modal').hidden=true;game={k,phase:'intro'};render();return true}
+  catch(err){toast(err&&err.code==='permission-denied'?'過關碼不對或已過期，請看關主手機上最新的碼':'網路不穩，請再試一次');return false}
+}
+function fireAsk(k){
+  const m=$('#modal'),s=ST[k];
+  m.innerHTML=`<div class="sheet stack" style="border-color:${BADGE[k].bg}"><div class="lbl" style="color:${k==='dragon'?'#8A5A00':BADGE[k].bg}">${s.name}攤位</div><h2 id="mt">輸入過關碼</h2>
+   <div class="muted" style="font-size:15px;line-height:1.5">請看關主手機上 QR Code 下方的 4 個字，每 30 秒換一次。</div>
+   <input type="text" id="gc" class="mono" maxlength="4" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="A7K2" aria-label="過關碼" style="font-size:30px;letter-spacing:.3em;text-align:center;text-transform:uppercase">
+   <button class="btn" id="gok">進入攤位</button><button class="small-btn" id="gno">取消</button></div>`;
+  m.hidden=false;m.onclick=null;setTimeout(()=>{const i=$('#gc');if(i)i.focus()},60);
+  const go=async()=>{const v=$('#gc').value.trim();if(v.length<4){toast('過關碼是 4 個字');return}$('#gok').disabled=true;const ok=await fireEnter(k,v);if(!ok&&$('#gok')){$('#gok').disabled=false;$('#gc').select()}};
+  $('#gok').onclick=go;$('#gc').onkeydown=e=>{if(e.key==='Enter')go()};$('#gno').onclick=()=>{m.hidden=true};
+}
+/* ---------- 領護照、找回護照 ---------- */
+function fireBusy(){ob.err='';const b=$('#obtn')||$('#rbtn');if(b){b.disabled=true;b.textContent='處理中…'}}
+async function fireJoin(cohort,name,pre){
+  const fail=msg=>{ob.busy=0;ob.err=msg;if(role==='onboard')rOnboard()};
+  if(!fx.ready)return fail('連線中，請稍候幾秒再按一次');
+  fireBusy();
+  const ck=ckOf(cohort,name),rec=String(Math.floor(1000+Math.random()*9000));
+  try{
+    const c=await withTimeout(FBS.getDoc(FD('claims',ck)),9000);
+    if(c.exists()){if(await fireAdopt(c.data().pid))return;return fail(`${cohort} ${name} 已經領過護照了。換了手機或瀏覽器？請按下方「找回我的護照」。`)}
+    let pid=null;
+    for(let i=0;i<6&&!pid;i++){const id=String(Math.floor(1000+Math.random()*9000)),b=FBS.writeBatch(fx.db);
+      b.set(FD('priv',id),{owner:fx.uid,rec});b.set(FD('players',id),{owner:fx.uid,name,cohort,ck,badges:{},entered:{},redeemed:null,pre:pre?1:0,at:Date.now()});b.set(FD('claims',ck),{pid:id});
+      try{await withTimeout(b.commit(),9000);pid=id}catch(e){if(e.code!=='permission-denied')throw e}}
+    if(!pid)return fail('領取沒有成功，請再按一次；還是不行請找現場關主協助。');
+    S.players[pid]={owner:fx.uid,name,cohort,ck,rec,badges:{},entered:{},redeemed:null,pre:pre?1:0};S.me=pid;S.joined=1;fx.meJ=JSON.stringify(meSync(S.players[pid]));localSave();
+    ob.busy=0;ob.err='';role='player';game=null;ptab='passport';fireMe();render();toast('護照已領取，找回碼 '+rec);
+    if(fx.pend){const e=fx.pend;fx.pend=null;fireEnter(e.k,e.t)}
+  }catch(e){console.warn('[rally] join',e);fail('網路不穩，請再試一次')}
+}
+// 伺服器上已經有屬於這支手機的護照：直接接回（不用找回碼）
+async function fireAdopt(pid){
+  try{const ps=await FBS.getDoc(FD('players',pid));if(!ps.exists()||ps.data().owner!==fx.uid)return false;
+    let rec='';try{const pv=await FBS.getDoc(FD('priv',pid));rec=(pv.exists()&&pv.data().rec)||''}catch(e){}
+    S.players[pid]=Object.assign({},ps.data(),{rec});S.me=pid;S.joined=1;fx.meJ=JSON.stringify(meSync(S.players[pid]));fireDerive();localSave();
+    ob.busy=0;ob.err='';role='player';game=null;ptab='passport';fireMe();render();toast('已接回你的護照');
+    if(fx.pend){const e=fx.pend;fx.pend=null;fireEnter(e.k,e.t)}return true}catch(e){return false}
+}
+async function fireRecover(cohort,name,rec){
+  const fail=msg=>{ob.busy=0;ob.err=msg;if(role==='onboard')rOnboard()};
+  if(!fx.ready)return fail('連線中，請稍候幾秒再按一次');
+  fireBusy();
+  try{
+    const c=await withTimeout(FBS.getDoc(FD('claims',ckOf(cohort,name))),9000);
+    if(!c.exists())return fail('找不到這個屆別和姓名的護照，請確認用字和當初填的一樣。');
+    const pid=c.data().pid,b=FBS.writeBatch(fx.db);b.update(FD('priv',pid),{owner:fx.uid,proof:rec});b.update(FD('players',pid),{owner:fx.uid});
+    try{await withTimeout(b.commit(),9000)}catch(e){if(e.code==='permission-denied')return fail('找回碼不符，請再確認一次');throw e}
+    const s=await FBS.getDocFromServer(FD('players',pid));
+    S.players[pid]=Object.assign({},s.data(),{rec});S.me=pid;S.joined=1;fx.meJ=JSON.stringify(meSync(S.players[pid]));fireDerive();localSave();
+    ob.busy=0;ob.err='';ob.mode='new';role='player';game=null;ptab='passport';fireMe();render();toast('歡迎回來，'+name);
+    if(fx.pend){const e=fx.pend;fx.pend=null;fireEnter(e.k,e.t)}
+  }catch(e){console.warn('[rally] recover',e);fail('網路不穩，請再試一次')}
+}
+/* ---------- 管理後台：清除全部資料（測試完歸零用） ---------- */
+async function fireWipe(){
+  const refs=[],ps=await FBS.getDocs(FBS.collection(fx.db,'players')),ls=await FBS.getDocs(FBS.collection(fx.db,'leads'));
+  ps.forEach(d=>{refs.push(FD('players',d.id),FD('priv',d.id));const ck=d.data().ck;if(ck)refs.push(FD('claims',ck))});ls.forEach(d=>refs.push(d.ref));refs.push(FD('pub','board'));
+  for(let i=0;i<refs.length;i+=300){const b=FBS.writeBatch(fx.db);refs.slice(i,i+300).forEach(r=>b.delete(r));await b.commit()}
+  return ps.size;
+}
+/* ---------- 伺服器來了新資料：畫面安全時才重畫（不打斷輸入與遊戲） ---------- */
+let srT=null;
+function softRender(){clearTimeout(srT);srT=setTimeout(()=>{
+  const a=document.activeElement;if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.id!=='role')return;
+  if(!$('#modal').hidden)return;
+  if(role==='player'){if(game||!['passport','stations','battle'].includes(ptab))return}
+  else if(role==='admin'){if((stab.admin||'overview')!=='overview')return}
+  else if(role==='onboard'||role==='staffLogin')return;
+  else if(role==='redeem'&&lastVerdict)return;
+  render()},250)}
+
+if(FIRE)fireBoot();
 // 分享連結加 #join：這支手機還沒領過護照就直接進首次領取頁
 function joinGate(){if(location.hash==='#join'&&!S.joined){role='onboard';ob.station='pre';ob.mode='new';$('#role').value='onboard'}}
 joinGate();addEventListener('hashchange',()=>{joinGate();render()});
