@@ -479,7 +479,15 @@ body.fire .role,body.fire .proto{display:none}
 .cpage .cic{width:32px;height:32px}.cpage .cic svg{width:20px;height:20px}
 .cpage .ctile b{font-size:14px;line-height:1.25}
 .cfoot{display:flex;flex-direction:column;gap:min(8px,1dvh)}
-.cwho{display:flex;align-items:baseline;gap:8px;min-width:0}.cwho b{font-size:16px}
+.cwho{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1}
+.pbtn{flex:none;display:inline-flex;align-items:center;gap:4px;min-height:34px;padding:0 12px;border:1.5px solid;border-radius:999px;color:var(--ink);font-weight:700;font-size:14px;white-space:nowrap}
+.pbtn span{opacity:.6}
+.pview{width:100%;max-width:440px;max-height:calc(100dvh - 24px);display:flex;flex-direction:column;gap:8px}
+.pimg{flex:1 1 auto;min-height:0;overflow:auto;border-radius:14px;background:#fff;-webkit-overflow-scrolling:touch}
+.pimg img{display:block;width:100%;height:auto}
+.pbar{flex:none;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px}
+.pbar .btn{min-height:46px;display:grid;place-items:center;text-decoration:none}
+.pbar .btn.ghost{background:var(--card)}.cwho b{font-size:16px}
 .clinks{display:flex;align-items:center;gap:8px;min-width:0}.clinks .lbl{flex:none}
 .clinks a{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 12px;border:1.5px solid;border-radius:999px;background:var(--card);color:var(--ink);font-weight:700;font-size:14px;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .clinks a span{font-size:12px;opacity:.6}
@@ -657,6 +665,7 @@ const leftChip=()=>giftLeft()>0?`<span class="gleft">限量・送完為止</span
 const redCount=()=>S.base.redeemed+Object.values(S.players).filter(p=>p.redeemed).length;
 const passCount=k=>S.base[k]+Object.values(S.players).filter(p=>p.badges[k]).length;
 function roleBar(t,sub,c,k){return `<div class="rolebar ${c?'':'tri'}" style="--c:${c||'var(--card)'};--fg:${!c?'var(--ink)':k==='dragon'?'#3A2400':'#fff'}">${k?`<img class="masc" style="width:42px;height:42px" src="${MASC[k]}" alt="">`:''}<div style="min-width:0;flex:1"><b>${t}</b><span>${sub}</span></div></div>`}
+const POSTER={golf:'img/poster-golf-26189f84.webp',tao:'img/poster-tao-09b21b11.webp',dragon:'img/poster-dragon-4b7cce1e.webp'}; // 各社團招募海報（點「會費與活動」才載入）
 const INFO={ // 範例文字：請各社團提供正式內容
   golf:{term:'第12屆',tag:'以球會友，一起快樂揮桿！',intro:'每月第四週四月例賽，第二週四晚上室內新手團練；年度有外地賽、國外賽、會長盃。本屆新增破百獎、全勤獎等八個獎項。',
     items:[['月例賽','第四週四午球'],['新手團練','第二週四晚上・Par One'],['年度三大賽','外地賽・國外賽・會長盃']],role:'本屆會長',contact:'創12 李麗娜'},
@@ -995,19 +1004,29 @@ function showClub(k){
   $('#mm').onclick=()=>{close();ptab='clubs';stab.club=k;render()};$('#mm').focus();
 }
 /* 社團相關連結：每社最多 3 個，由社團幹部設定 */
-const DEF_LINKS={golf:[{t:'會員報名表',u:'https://forms.gle/jBFzzYcukBLPKmhm8'},{t:'年度賽務資訊',u:'https://danac6823.github.io/golf-fin/golf-play.html'},{t:'LINE 群組',u:'https://line.me/ti/g/f-JkXAbXE8'}],tao:[{t:'LINE 群組',u:'https://line.me/ti/g/5JQsxN8YNA'}],dragon:[{t:'LINE 群組',u:'https://line.me/ti/g/8_5cxPXFL7'}]};
+const DEF_LINKS={golf:[{t:'會員報名表',u:'https://forms.gle/jBFzzYcukBLPKmhm8'},{t:'年度賽務資訊',u:'https://danac6823.github.io/golf-fin/golf-play.html'},{t:'LINE 群組',u:'https://line.me/ti/g/f-JkXAbXE8'}],tao:[{t:'LINE 群組',u:'https://line.me/ti/g/RdwqrVKu39'}],dragon:[{t:'LINE 群組',u:'https://line.me/ti/g/8_5cxPXFL7'}]};
 const clubLinks=k=>((S.links||DEF_LINKS)[k]||[]).filter(l=>l&&l.t&&l.u);
 const escA=t=>String(t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 function rClubs(){ // 社團介紹：一頁到底不滑動，「我有興趣加入」永遠看得到
   const k=stab.club||'golf',lead=S.leads.find(l=>l.pid===S.me&&l.club===k),got=me().badges[k],bg=BADGE[k].bg,fg=k==='dragon'?'#3A2400':'#fff';
   main.innerHTML=`<div class="cpage"><div class="ctabs">${KEYS.map(x=>`<button aria-selected="${x===k}" data-ck="${x}" style="${x===k?`background:${BADGE[x].bg};color:${x==='dragon'?'#3A2400':'#fff'};border-color:transparent`:''}"><img src="${MASC[x]}" alt="">${ST[x].name}</button>`).join('')}</div>
    ${clubBody(k)}
-   <div class="cfoot"><div class="who"><div class="cwho"><span class="lbl">${INFO[k].role||'聯絡窗口'}</span><b>${INFO[k].contact}</b></div>${LOGO[k]&&k==='golf'?`<img class="clublogo" style="width:32px;height:32px" src="${LOGO[k]}" alt="${ST[k].name}社徽">`:WM[k]?`<img style="width:32px;height:32px;object-fit:contain" src="${WM[k]}" alt="${ST[k].name}社徽">`:''}</div>
+   <div class="cfoot"><div class="who"><div class="cwho"><span class="lbl">${INFO[k].role||'聯絡窗口'}</span><b>${INFO[k].contact}</b></div>${POSTER[k]?`<button class="pbtn" id="pso" style="border-color:${bg};background:${TINT[k]}">會費與活動<span aria-hidden="true">›</span></button>`:''}${LOGO[k]&&k==='golf'?`<img class="clublogo" style="width:32px;height:32px" src="${LOGO[k]}" alt="${ST[k].name}社徽">`:WM[k]?`<img style="width:32px;height:32px;object-fit:contain" src="${WM[k]}" alt="${ST[k].name}社徽">`:''}</div>
     ${clubLinks(k).length?`<div class="clinks${clubLinks(k).length>2?' n3':''}"><span class="lbl">相關連結</span>${clubLinks(k).map(l=>`<a href="${escA(l.u)}" target="_blank" rel="noopener" style="border-color:${bg}">${escA(l.t)}<span aria-hidden="true">↗</span></a>`).join('')}</div>`:''}
     <div class="cact">${lead?`<div class="cdone" style="border-color:${bg}">已登記想加入 ✓<small>幹部會用 LINE 聯絡你</small></div>`:`<button class="btn cjoin" id="lo" style="background:${bg};border-color:${bg};color:${fg}">我有興趣加入</button>`}${got?'':`<button class="btn ghost" onclick="scan('${k}')">去挑戰</button>`}</div></div></div>`;
   main.querySelectorAll('[data-ck]').forEach(b=>b.onclick=()=>{stab.club=b.dataset.ck;render()});
   if($('#lo'))$('#lo').onclick=()=>showLead(k);
+  if($('#pso'))$('#pso').onclick=()=>showPoster(k);
   bindPoke(main);
+}
+function showPoster(k){ // 社團海報：全螢幕看，下方直接給「加入 LINE 群」按鈕（海報上的 QR 在自己手機上掃不到）
+  const m=$('#modal'),bg=BADGE[k].bg,fg=k==='dragon'?'#3A2400':'#fff',ln=clubLinks(k).find(l=>/line\.me|lin\.ee/.test(l.u));
+  m.innerHTML=`<div class="pview"><div class="pimg"><img src="${POSTER[k]}" alt="${ST[k].name}招募海報：會費與活動"></div>
+    <div class="pbar">${ln?`<a class="btn" href="${escA(ln.u)}" target="_blank" rel="noopener" style="background:${bg};border-color:${bg};color:${fg}">加入 LINE 群 ↗</a>`:''}<button class="btn ghost" id="px">關閉</button></div></div>`;
+  m.hidden=false;
+  const close=()=>{m.hidden=true;m.innerHTML='';document.removeEventListener('keydown',esc)};
+  const esc=e=>{if(e.key==='Escape')close()};
+  $('#px').onclick=close;m.onclick=e=>{if(e.target===m)close()};document.addEventListener('keydown',esc);
 }
 function showLead(k,after){ // 留聯絡方式改用彈出視窗，介紹頁不會被撐長
   const m=$('#modal');
