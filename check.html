@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>社團巡禮護照｜系統自我檢查</title>
+<style>
+:root{color-scheme:light}
+body{margin:0;background:#F5F3EE;color:#17201D;font:16px/1.5 system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif}
+main{max-width:720px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:24px;margin:0 0 4px}
+p{margin:8px 0}.muted{color:#5d6a66;font-size:14px}
+.card{background:#fff;border:1px solid #DDD6C6;border-radius:14px;padding:14px 16px;margin:14px 0}
+.pins{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+label{font-size:13px;color:#5d6a66;display:block}
+input{width:100%;box-sizing:border-box;font:600 18px ui-monospace,Menlo,monospace;padding:8px 10px;border:1.5px solid #C9C2B0;border-radius:10px;letter-spacing:.15em}
+button{font:700 17px inherit;font-family:inherit;border:0;border-radius:12px;padding:12px 18px;background:#17201D;color:#fff;min-height:48px}
+button:disabled{opacity:.5}button.ghost{background:#fff;color:#17201D;border:1.5px solid #17201D}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+#sum{font-size:20px;font-weight:800}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+td{padding:7px 6px;border-top:1px solid #EEE8DA;vertical-align:top}
+td.n{width:28px;color:#8a938f;font-variant-numeric:tabular-nums}
+td.r{width:54px;font-weight:800;white-space:nowrap}
+.ok{color:#1F7A4D}.bad{color:#C8321E}.wait{color:#8a938f}
+.d{display:block;color:#8a938f;font-size:12.5px;word-break:break-all}
+pre{white-space:pre-wrap;word-break:break-all;font-size:12px;background:#FBF9F4;border:1px solid #EEE8DA;border-radius:10px;padding:10px;max-height:220px;overflow:auto}
+</style>
+</head>
+<body>
+<main>
+<h1>系統自我檢查</h1>
+<p class="muted">這一頁會用四個測試身分，實際對資料庫做領護照、過關、兌換、找回護照等動作，確認安全規則有照設計運作。測試資料最後會自動刪除。<b>活動進行中請不要執行。</b></p>
+
+<div class="card">
+<p style="margin-top:0"><b>工作人員 PIN</b>　<span class="muted">第一次執行會用這五組建立 PIN；之後執行請填目前使用中的 PIN。</span></p>
+<div class="pins">
+<label>高球會<input id="p_golf" inputmode="numeric" maxlength="8" value="1101"></label>
+<label>桃園幫<input id="p_tao" inputmode="numeric" maxlength="8" value="1102"></label>
+<label>創友一條龍<input id="p_dragon" inputmode="numeric" maxlength="8" value="1103"></label>
+<label>兌換台<input id="p_redeem" inputmode="numeric" maxlength="8" value="2200"></label>
+<label>管理後台<input id="p_admin" inputmode="numeric" maxlength="8" value="9900"></label>
+</div>
+</div>
+
+<div class="row">
+<button id="go">開始檢查</button>
+<button id="copy" class="ghost" hidden>複製結果</button>
+<span id="sum"></span>
+</div>
+
+<div class="card" id="outc" hidden><table id="out"></table></div>
+<p class="muted" id="env"></p>
+<pre id="log" hidden></pre>
+</main>
+
+<script src="config.js"></script>
+<script src="fb.js"></script>
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const out=$('#out'),log=[];
+let n=0,pass=0,fail=0;
+const KEYS=['golf','tao','dragon'];
+function row(name){n++;const tr=document.createElement('tr');tr.innerHTML='<td class="n">'+n+'</td><td>'+name+'<span class="d"></span></td><td class="r wait">…</td>';out.appendChild(tr);return tr}
+function done(tr,ok,detail){const r=tr.querySelector('.r');r.className='r '+(ok?'ok':'bad');r.textContent=ok?'通過':'失敗';tr.querySelector('.d').textContent=detail||'';ok?pass++:fail++;log.push((ok?'OK  ':'FAIL')+' '+tr.children[0].textContent+' '+tr.children[1].firstChild.textContent+(detail?' — '+detail:''));$('#sum').textContent=pass+' 通過'+(fail?'・'+fail+' 失敗':'')}
+const code=e=>(e&&(e.code||e.name))||String(e);
+// expect: 'ok' 應該成功；'deny' 應該被規則擋下
+async function T(name,expect,fn,check){
+  const tr=row(name);
+  try{const v=await fn();
+    if(expect==='deny')return done(tr,false,'應該被擋下，卻成功了'),null;
+    if(check){const msg=check(v);if(msg)return done(tr,false,msg),v}
+    done(tr,true,'');return v
+  }catch(e){
+    const c=code(e);
+    if(expect==='deny'){if(c==='permission-denied')return done(tr,true,''),null;return done(tr,false,'預期被規則擋下，但錯誤是 '+c+'：'+(e.message||'')),null}
+    done(tr,false,c+'：'+(e.message||''));return null
+  }
+}
+const rnd4=()=>String(1000+Math.floor(Math.random()*9000));
+const hm=()=>new Date().toTimeString().slice(0,5);
+const slotNow=()=>Math.floor(Date.now()/30000);
+const mkCode=()=>Math.random().toString(36).slice(2,6).toUpperCase().padEnd(4,'X');
+
+$('#go').onclick=async()=>{
+  $('#go').disabled=true;out.innerHTML='';n=pass=fail=0;log.length=0;$('#outc').hidden=false;$('#sum').textContent='檢查中…';
+  const cfg=window.RALLY_FB;
+  if(!window.FB||!cfg){const tr=row('載入設定與 Firebase 元件');done(tr,false,!cfg?'找不到 config.js':'找不到 fb.js');$('#go').disabled=false;return}
+  const F=window.FB,pins={};['golf','tao','dragon','redeem','admin'].forEach(k=>pins[k]=$('#p_'+k).value.trim());
+  $('#env').textContent='專案 '+cfg.projectId+'・'+new Date().toLocaleString()+'・'+navigator.userAgent;
+  const tag=Date.now().toString(36);
+  const mk=name=>{const app=F.initializeApp(cfg,name+tag);const auth=F.initializeAuth(app,{persistence:F.inMemoryPersistence});const db=F.initializeFirestore(app,{});return{app,auth,db,uid:null}};
+  const A=mk('A'),B=mk('B'),C=mk('C'),D=mk('D');
+  const login=async X=>{const c=await F.signInAnonymously(X.auth);X.uid=c.user.uid;return X.uid};
+  const d=(X,...p)=>F.doc(X.db,...p),col=(X,p)=>F.collection(X.db,p);
+
+  // ---- 1. 登入與 PIN ----
+  if(!await T('匿名登入（管理員測試身分）','ok',()=>login(A))){$('#sum').textContent='無法登入：請確認 Authentication 已啟用「匿名」';$('#go').disabled=false;$('#copy').hidden=false;return}
+  {const tr=row('建立工作人員 PIN（已存在則略過）');
+    try{await F.setDoc(d(A,'secret','pins'),pins);done(tr,true,'已用上方五組 PIN 初始化')}
+    catch(e){if(code(e)==='permission-denied')done(tr,true,'PIN 之前已建立，沿用現有的');else done(tr,false,code(e)+'：'+(e.message||''))}}
+  await T('錯誤的 PIN 不能開通工作身分','deny',()=>F.setDoc(d(A,'staff',A.uid),{r:{admin:'x'+pins.admin},at:Date.now()}));
+  const staffA=await T('正確的 PIN 可以開通（五個身分）','ok',async()=>{await F.setDoc(d(A,'staff',A.uid),{r:pins,at:Date.now()});return true});
+  if(!staffA){const tr=row('中止');done(tr,false,'管理員身分開通失敗，後面的檢查無法進行。若 PIN 改過，請填入目前的 PIN 再試；若是第一次執行，請確認安全規則已發布。');$('#go').disabled=false;$('#copy').hidden=false;return}
+  await T('管理後台讀得到 PIN 設定','ok',()=>F.getDoc(d(A,'secret','pins')),s=>s.exists()?'':'讀不到文件');
+
+  // ---- 2. 參加者領護照 ----
+  await T('匿名登入（參加者測試身分）','ok',()=>login(B));
+  await T('參加者讀不到 PIN 設定','deny',()=>F.getDoc(d(B,'secret','pins')));
+  const pid=rnd4(),rec=rnd4(),ck='檢查｜測試員'+tag;
+  const newP=owner=>({owner,name:'測試員',cohort:'檢查',ck,badges:{},entered:{},redeemed:null,at:Date.now()});
+  await T('領護照（護照＋私密資料＋姓名佔位，一次寫入）','ok',async()=>{const b=F.writeBatch(B.db);b.set(d(B,'priv',pid),{owner:B.uid,rec});b.set(d(B,'players',pid),newP(B.uid));b.set(d(B,'claims',ck),{pid});await b.commit();return true});
+  await T('同屆同姓名不能再領第二本','deny',async()=>{const p2=rnd4(),b=F.writeBatch(B.db);b.set(d(B,'priv',p2),{owner:B.uid,rec});b.set(d(B,'players',p2),newP(B.uid));b.set(d(B,'claims',ck),{pid:p2});await b.commit()});
+  await T('參加者查得到自己的護照','ok',()=>F.getDocs(F.query(col(B,'players'),F.where('owner','==',B.uid))),s=>s.size===1?'':'查到 '+s.size+' 本，應為 1 本');
+  await T('參加者不能讀全部護照','deny',()=>F.getDocs(col(B,'players')));
+
+  // ---- 3. 過關碼 ----
+  await T('參加者不能寫入過關碼','deny',()=>F.setDoc(d(B,'gate','golf'),{codes:{}}));
+  const codes={};
+  await T('工作人員可以發布過關碼','ok',async()=>{const s=slotNow();
+    for(const k of KEYS){const snap=await F.getDoc(d(A,'gate',k));const cur=(snap.exists()&&snap.data().codes)||{};const add={};
+      for(let i=-2;i<=6;i++){const key=String(s+i);if(!cur[key])add[key]=mkCode()}
+      if(Object.keys(add).length)await F.setDoc(d(A,'gate',k),{codes:add},{merge:true});
+      codes[k]=Object.assign({},cur,add)}
+    return true});
+  const cur=k=>codes[k]&&codes[k][String(slotNow())];
+  const pB=()=>d(B,'players',pid);
+  await T('錯的過關碼進不了攤位','deny',()=>F.updateDoc(pB(),{'entered.golf':{t:'ZZZZ',at:Date.now()}}));
+  {const tr=row('對的過關碼可以進攤位（高球會）');
+    try{await F.updateDoc(pB(),{'entered.golf':{t:cur('golf'),at:Date.now()}});done(tr,true,'')}
+    catch(e){done(tr,false,code(e)+'：'+(e.message||'')+(code(e)==='permission-denied'?'（若其他項目都通過，可能是這台裝置的時間誤差超過一分鐘）':''))}}
+  await T('沒掃碼的攤位不能直接拿徽章','deny',()=>F.updateDoc(pB(),{'badges.tao':hm()}));
+  await T('掃碼後可以拿徽章','ok',async()=>{await F.updateDoc(pB(),{'badges.golf':hm()});return true});
+  await T('參加者不能自己標成已兌換','deny',()=>F.updateDoc(pB(),{redeemed:hm()}));
+  await T('參加者不能改姓名','deny',()=>F.updateDoc(pB(),{name:'別人'}));
+  await T('參加者可以更新小遊戲成績','ok',async()=>{await F.updateDoc(pB(),{'best.golf':3});return true});
+
+  // ---- 4. 兌換 ----
+  await T('匿名登入（兌換台測試身分）','ok',()=>login(C));
+  await T('兌換台 PIN 開通','ok',async()=>{await F.setDoc(d(C,'staff',C.uid),{r:{redeem:pins.redeem},at:Date.now()});return true});
+  await T('沒集滿不能兌換','deny',()=>F.updateDoc(d(C,'players',pid),{redeemed:hm(),redeemedBy:C.uid}));
+  await T('另外兩個攤位掃碼並拿徽章','ok',async()=>{for(const k of ['tao','dragon']){await F.updateDoc(pB(),{['entered.'+k]:{t:cur(k),at:Date.now()}});await F.updateDoc(pB(),{['badges.'+k]:hm()})}return true});
+  await T('集滿後兌換台可以兌換','ok',async()=>{await F.updateDoc(d(C,'players',pid),{redeemed:hm(),redeemedBy:C.uid});return true});
+  await T('同一本護照不能兌換第二次','deny',()=>F.updateDoc(d(C,'players',pid),{redeemed:hm(),redeemedBy:C.uid}));
+  await T('工作人員可以讀全部護照','ok',()=>F.getDocs(col(C,'players')),s=>s.size>=1?'':'一本都沒讀到');
+
+  // ---- 5. 排行榜快照、設定、招募名單 ----
+  await T('工作人員可以更新排行榜快照','ok',async()=>{await F.setDoc(d(C,'pub','check'),{t:Date.now()});return true});
+  await T('參加者讀得到排行榜快照','ok',()=>F.getDoc(d(B,'pub','check')),s=>s.exists()?'':'讀不到');
+  await T('參加者不能改排行榜快照','deny',()=>F.setDoc(d(B,'pub','check'),{t:0}));
+  await T('管理後台可以改活動設定','ok',async()=>{await F.setDoc(d(A,'meta','check'),{t:Date.now()});return true});
+  await T('參加者讀得到活動設定','ok',()=>F.getDoc(d(B,'meta','check')),s=>s.exists()?'':'讀不到');
+  await T('參加者不能改活動設定','deny',()=>F.setDoc(d(B,'meta','check'),{t:0}));
+  const lead=await T('參加者可以登記「我有興趣加入」','ok',()=>F.addDoc(col(B,'leads'),{uid:B.uid,pid,club:'golf',name:'測試員',test:true,at:Date.now()}));
+  await T('參加者讀不到招募名單','deny',()=>F.getDocs(col(B,'leads')));
+  await T('工作人員讀得到招募名單','ok',()=>F.getDocs(col(C,'leads')),s=>s.size>=1?'':'一筆都沒讀到');
+
+  // ---- 6. 換手機找回護照 ----
+  await T('匿名登入（另一支手機）','ok',()=>login(D));
+  await T('找回碼錯誤不能接手護照','deny',()=>F.updateDoc(d(D,'priv',pid),{owner:D.uid,proof:rec==='0000'?'1111':'0000'}));
+  await T('找回碼正確可以接手護照','ok',async()=>{const b=F.writeBatch(D.db);b.update(d(D,'priv',pid),{owner:D.uid,proof:rec});b.update(d(D,'players',pid),{owner:D.uid});await b.commit();return true});
+  await T('新手機讀得到這本護照','ok',()=>F.getDoc(d(D,'players',pid)),s=>s.exists()&&Object.keys(s.data().badges||{}).length===3?'':'徽章數不對');
+  await T('舊手機不再讀得到','deny',()=>F.getDocFromServer(d(B,'players',pid)));
+  {const tr=row('即時同步（資料一變動，畫面收得到）');
+    try{const got=await new Promise((res,rej)=>{let first=true;const to=setTimeout(()=>{un();rej(new Error('8 秒內沒有收到更新'))},8000);
+        const un=F.onSnapshot(d(D,'players',pid),s=>{if(first){first=false;F.updateDoc(d(D,'players',pid),{'best.tao':12}).catch(rej);return}
+          if(s.exists()&&s.data().best&&s.data().best.tao===12&&!s.metadata.hasPendingWrites){clearTimeout(to);un();res(true)}},rej)});
+      done(tr,!!got,'')}catch(e){done(tr,false,code(e)+'：'+(e.message||''))}}
+
+  // ---- 7. 清除測試資料 ----
+  await T('清除測試資料','ok',async()=>{const b=F.writeBatch(A.db);b.delete(d(A,'players',pid));b.delete(d(A,'priv',pid));b.delete(d(A,'claims',ck));b.delete(d(A,'pub','check'));b.delete(d(A,'meta','check'));
+    if(lead)b.delete(d(A,'leads',lead.id));b.delete(d(A,'staff',C.uid));await b.commit();await F.deleteDoc(d(A,'staff',A.uid));return true});
+
+  $('#sum').textContent=(fail?'有 '+fail+' 項失敗':'全部通過')+'（'+pass+'/'+(pass+fail)+'）';
+  $('#sum').className=fail?'bad':'ok';$('#copy').hidden=false;$('#go').disabled=false;$('#go').textContent='再檢查一次';
+  for(const X of [A,B,C,D]){try{await F.deleteApp(X.app)}catch(e){}}
+};
+$('#copy').onclick=async()=>{const txt=$('#sum').textContent+'\n'+$('#env').textContent+'\n'+log.join('\n');
+  try{await navigator.clipboard.writeText(txt);$('#copy').textContent='已複製'}catch(e){const p=$('#log');p.hidden=false;p.textContent=txt}};
+})();
+</script>
+</body>
+</html>
