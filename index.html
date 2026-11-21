@@ -479,6 +479,34 @@ body.fire .role,body.fire .proto{display:none}
 .cpage .cic{width:32px;height:32px}.cpage .cic svg{width:20px;height:20px}
 .cpage .ctile b{font-size:14px;line-height:1.25}
 .cfoot{display:flex;flex-direction:column;gap:min(8px,1dvh)}
+.nextb{min-height:58px;font-size:19px}
+.stv{gap:10px}
+.stv .chip.done{background:var(--ok);color:#fff;font-size:16px;font-weight:700;padding:5px 14px;box-shadow:0 2px 6px -2px rgb(0 0 0 / .35)}
+.stv .sdone{border-color:var(--ok);border-width:1.5px}
+.stv>.stafflink{margin-top:auto;position:sticky;bottom:calc(var(--tbh,78px) + 2px);z-index:2;align-self:stretch;background:var(--paper);min-height:40px;margin-inline:-16px;box-shadow:0 -10px 10px -6px var(--paper)}
+.sdone .bonus{padding-top:6px}
+.sdone .bonus .lbl{font-size:12px;margin-bottom:-2px}
+.stv>.panel:not(.sdone){padding:12px 14px;gap:8px}
+.bonus{display:flex;align-items:center;gap:6px;flex-wrap:wrap;border-top:1px dashed #DDD7C9;padding-top:8px}
+.bonus .lbl{flex:1 0 100%;font-size:12.5px}
+.bonus button{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:5px;min-height:38px;padding:0 8px;border:1px solid #D8D2C4;border-radius:999px;background:var(--card);color:var(--ink);font-size:14.5px;font-weight:700;white-space:nowrap}
+.bonus button small{font-weight:500;font-size:12px;color:var(--muted)}
+.bonus button i{font-style:normal;opacity:.5}
+.plinks{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap}
+details.more{border:1.5px dashed var(--line,#D8D2C4);border-radius:14px;padding:0 12px}
+details.more summary{list-style:none;cursor:pointer;min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700;font-size:15px;color:var(--muted)}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::after{content:'＋';font-weight:700}
+details.more[open] summary::after{content:'－'}
+details.more summary small{font-weight:500;font-size:12.5px;border:1px solid currentColor;border-radius:999px;padding:1px 7px;opacity:.85}
+details.more .mrow{padding-bottom:12px}
+.hint3{font-size:13.5px;color:var(--muted)}
+.hint3.slim{font-size:12.5px}
+.hint3.slim .steps3{line-height:1.3}
+.hint3.slim .steps3 i{margin:0 3px}
+.steps3{display:block;line-height:1.5}
+.steps3 b{color:var(--gold);margin-right:2px}
+.steps3 i{font-style:normal;opacity:.5;margin:0 5px}
 .cwho{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1}
 .pbtn{flex:none;display:inline-flex;align-items:center;gap:4px;min-height:34px;padding:0 12px;border:1.5px solid;border-radius:999px;color:var(--ink);font-weight:700;font-size:14px;white-space:nowrap}
 .pbtn span{opacity:.6}
@@ -653,7 +681,8 @@ const cohortCode=c=>{const m=/^創(\d+)$/.exec(c||'');return m?String(m[1]).padS
 const TITLES=['巡禮新手','初試身手','只差臨門一腳','集章達人'];
 const tmin=t=>{const a=t.split(':');return a[0]*60+ +a[1]};
 const startHM=()=>S.startHM||'17:30',endHM=()=>S.endHM||'18:40'; // 活動開放與結束時間
-const luckyList=()=>S.lucky||[50,100,150]; // 第 N 位集滿的幸運兒
+const LUCKY_ON=false; // 幸運兒（第 N 位集滿加碼禮）功能開關：false＝全站隱藏，要恢復改成 true
+const luckyList=()=>LUCKY_ON?(S.lucky||[50,100,150]):[]; // 第 N 位集滿的幸運兒
 const fullCount=()=>S.base.full+Object.values(S.players).filter(x=>cnt(x)===3).length;
 const nextLucky=()=>{const n=fullCount();return luckyList().filter(x=>x>n).sort((a,b)=>a-b)[0]};
 const luckyLine=()=>{const x=nextLucky();return x?`下一位幸運兒：第 ${x} 位集滿（還差 ${x-fullCount()} 位）`:''};
@@ -930,8 +959,8 @@ function rPassport(){
   else if(n===3)next=`<div class="panel result full ppqr"><div class="ppqr-l"><div class="lbl" style="color:var(--gold)">集滿了！</div><div class="hurry" style="font-weight:700;font-size:18px;line-height:1.3">${giftLeft()>0?'快去兌換台領獎！':'到兌換台出示'}</div><div class="lbl" style="margin-top:10px">兌換號碼</div><div class="mono" style="font-size:36px;letter-spacing:.1em;line-height:1.1">${rno(S.me)}</div><div class="muted" style="font-size:13px;margin-top:6px">${p.lucky?'<b style="color:#C8321E">幸運兒・有加碼禮</b>・':''}${p.rank?`第 ${p.rank} 位集滿・`:''}${giftLeft()>0?'限量小禮・送完為止':'<b style="color:#C8321E">小禮已送完</b>'}</div></div><div class="qrbox" id="rq"></div></div>`;
   else next=`<div class="next-h">${todo.length===1?"最後一關！過了就能領禮物":`再 ${todo.length} 關就能領禮物`}${leftChip()}</div>
      ${todo.length>=2?`<div class="go3 n${todo.length}">${todo.map(k=>`<button class="go" style="--c:${ST[k].c}" onclick="scan('${k}')"><div class="ic">${ico(k)}</div><div style="font-weight:700;font-size:15px">${ST[k].name}</div><span class="arrow">去挑戰 ›</span></button>`).join('')}</div>`:''}
-     ${todo.length>=2?'':todo.map(k=>`<button class="go ${todo.length===1?'last':''}" style="--c:${ST[k].c}" onclick="scan('${k}')"><div class="ic">${ico(k)}</div><div style="min-width:0"><div style="font-weight:700">${ST[k].name}</div><div class="muted" style="font-size:14px">${MODES[k]?`${quizOf(k)[1]}・過關解鎖${miniOf(k)[1]}`:ST[k].game}</div></div><span class="arrow">去挑戰 ›</span></button>`).join('')}
-     <div class="muted" style="font-size:14px">${S.startAt&&Date.now()<S.startAt?`護照已領好！${startHM()} 開放後，到攤位掃 QR Code 開始`:(FIRE?'到攤位後，輸入關主手機上的 4 碼挑戰碼':'到攤位掃 QR Code 開始（原型可直接點上方按鈕）')}</div>`;
+     ${todo.length>=2?'':todo.map(k=>`<button class="go ${todo.length===1?'last':''}" style="--c:${ST[k].c}" onclick="scan('${k}')"><div class="ic">${ico(k)}</div><div style="min-width:0"><div style="font-weight:700">${ST[k].name}</div><div class="muted" style="font-size:14px">${MODES[k]?quizOf(k)[2]:ST[k].game}</div></div><span class="arrow">去挑戰 ›</span></button>`).join('')}
+     <div class="hint3" id="hint3">${S.startAt&&Date.now()<S.startAt?`護照已領好！${startHM()} 開放後，到攤位掃 QR Code 開始`:`<span class="steps3"><b>①</b>${FIRE?'到攤位輸入挑戰碼':'到攤位（試玩直接點上方）'}<i>→</i><b>②</b>答對 2 題拿徽章<i>→</i><b>③</b>集滿 3 枚到兌換台領小禮</span>`}</div>`;
   main.innerHTML=`<div class="stack ppv">
    <div class="pp ${n===3?'done':''}">
     <div class="pp-hd"><b>護照<span>PASSPORT</span></b><span>No. ${S.me}</span></div>
@@ -947,20 +976,21 @@ function rPassport(){
    ${next}
    <button class="cardcta" id="cardcta" onclick="goCard(${n===3?"'all'":"''"})"><span class="th"><img src="${BANNER}" alt=""></span><span>${n===3?'做一張集滿紀念小卡':S.cardMade?'再做一張巡禮小卡':'做一張你的巡禮小卡'}<small>上傳照片，和吉祥物合照</small></span><span class="sp">✨ ›</span></button>
   </div>`;
-  {const c=$('#cardcta'),tb=$('#tabbar'),fits=()=>c.getBoundingClientRect().bottom<=tb.getBoundingClientRect().top-4;if(!fits()){c.classList.add('slim');if(!fits()){c.hidden=true;const m=main.querySelector('.mrz');$('#cardchip').hidden=!(m&&m.offsetParent)}}}
+  {const c=$('#cardcta'),tb=$('#tabbar'),fits=()=>c.getBoundingClientRect().bottom<=tb.getBoundingClientRect().top-4;if(!fits()){c.classList.add('slim');if(!fits()){c.hidden=true;const m=main.querySelector('.mrz');$('#cardchip').hidden=!(m&&m.offsetParent)}}const h3=$('#hint3'),over=()=>h3.getBoundingClientRect().bottom>tb.getBoundingClientRect().top-2;if(h3&&over()){h3.classList.add('slim');if(over())h3.hidden=true}}
   main.querySelectorAll('[data-club]').forEach(b=>b.onclick=()=>showClub(b.dataset.club));
   if($('#rq'))qr($('#rq'),rno(S.me),220);
   $('#egg').onclick=()=>{stab.egg=(stab.egg||0)+1;if(stab.egg>=5){stab.egg=0;confetti(['#1E5A43','#D9477C','#F2B705','#FFD9E5'],140,true);toast('被你發現了！祝你一桿進洞、龍舟奪標')}};
 }
 function rStations(){
   const p=me();
-  main.innerHTML=`<div class="stack"><div class="next-h">${KEYS.every(k=>p.badges[k])?'小遊戲開放中，來刷新紀錄':'三站巡禮，順序不限'}</div>
-   ${KEYS.map(k=>{const s=ST[k],d=p.badges[k],ms=MODES[k]||[['',s.game,s.rule]];return `<div class="panel stack ${d&&miniOf(k)?'sdone':''}" style="--c:${s.c}">
-    <div class="station"><div class="ic">${ico(k)}</div><div style="min-width:0"><h3>${s.name}</h3>${ms.length>1?(d?'':'<div class="muted" style="font-size:14px">先問答，過關解鎖小遊戲</div>'):''}</div>
+  main.innerHTML=`<div class="stack stv"><div class="next-h">${KEYS.every(k=>p.badges[k])?'三站都完成了！到兌換台領小禮':'三站巡禮・每站答對 2 題拿徽章'}</div>
+   ${[...KEYS].sort((a,b)=>(p.badges[a]?1:0)-(p.badges[b]?1:0)).map(k=>{const s=ST[k],d=p.badges[k],ms=MODES[k]||[['',s.game,s.rule]];return `<div class="panel stack ${d&&miniOf(k)?'sdone':''}" style="--c:${s.c}">
+    <div class="station"><div class="ic">${ico(k)}</div><div style="min-width:0"><h3>${s.name}</h3></div>
      <span class="chip ${d?'done':''}">${d?'已過關 ✓':'未過關'}</span></div>
-    <div class="modes" ${d&&miniOf(k)?'hidden':''}>${[...ms].sort((a,b)=>(a[0]==='quiz'?0:1)-(b[0]==='quiz'?0:1)).map(([m,n,dd])=>`<div class="mode" style="${m&&m!=='quiz'&&!d?'opacity:.55':''}"><b style="color:var(--c)">${m&&m!=='quiz'&&!d?'（過關解鎖）':''}${n}</b><span class="muted">${dd}</span></div>`).join('')}</div>
-    ${d&&miniOf(k)?`<div class="mrow"><button class="btn" style="background:${BADGE[k].bg};border-color:${BADGE[k].bg};color:${k==='dragon'?'#3A2400':'#fff'}" onclick="playMini('${k}')">玩${miniOf(k)[1]}${bestTxt(k)?`<small style="display:block;font-weight:500;font-size:13px;opacity:.85">${bestTxt(k)}</small>`:''}</button><button class="btn ghost" style="${xpStyle(k)}" onclick="playMini('${k}','expert')">達人挑戰${bestTxt(k+'Q')?`<small style="display:block;font-weight:500;font-size:13px;opacity:.8">${bestTxt(k+'Q')}</small>`:''}</button></div>`:`<button class="${d?'small-btn':'btn'}" onclick="scan('${k}')">${d?'已過關，再玩一次':(p.entered||{})[k]?'繼續挑戰（已掃過碼，不用重掃）':FIRE?'輸入挑戰碼':'去挑戰（原型：模擬掃碼）'}</button>`}</div>`}).join('')}
+    <div class="modes" ${d&&miniOf(k)?'hidden':''}>${ms.filter(x=>d||ms.length<2||x[0]==='quiz').map(([m,n,dd])=>`<div class="mode"><b style="color:var(--c)">${n}</b><span class="muted">${dd}</span></div>`).join('')}</div>
+    ${d&&miniOf(k)?`<div class="bonus"><span class="lbl">加碼・不影響集章</span><button onclick="playMini('${k}')">${miniOf(k)[1]}${bestTxt(k)?`<small>${bestTxt(k).replace('最佳','').trim()}</small>`:''}<i>›</i></button><button onclick="playMini('${k}','expert')">達人挑戰${bestTxt(k+'Q')?`<small>${bestTxt(k+'Q').replace('最佳','').trim()}</small>`:''}<i>›</i></button></div>`:`<button class="${d?'small-btn':'btn'}" ${d?'':`style="background:${BADGE[k].bg};border-color:${BADGE[k].bg};color:${k==='dragon'?'#3A2400':'#fff'};min-height:50px;font-size:17px"`} onclick="scan('${k}')">${d?'已過關，再玩一次':(p.entered||{})[k]?'繼續挑戰（已掃過碼，不用重掃）':FIRE?'輸入挑戰碼':'去挑戰（原型：模擬掃碼）'}</button>`}</div>`}).join('')}
    <button class="stafflink" id="stf">${staffList().length?'新增工作身分':'我是工作人員（關主／兌換台／社團幹部）'}</button></div>`;
+  {const st=main.firstElementChild,tb=$('#tabbar');st.style.setProperty('--tbh',(innerHeight-tb.getBoundingClientRect().top)+'px');st.style.minHeight=Math.max(0,tb.getBoundingClientRect().top-st.getBoundingClientRect().top-6)+'px'} // 「我是工作人員」固定貼在頁尾
   $('#stf').onclick=()=>{pin.v='';pin.err='';role='staffLogin';$('#role').value='staffLogin';render()};
 }
 function scan(k){
@@ -1071,8 +1101,8 @@ function renderGame(){
   const top=`<div class="game-top" style="--c:${s.c};${BAND[k]}"><div class="ic">${ico(k)}</div><div style="min-width:0;flex:1"><div class="lbl">${s.name}${s.sub?'・'+s.sub:''}</div><h3>${game.phase==='putt'?'加碼挑戰：實體推桿':modeName(k,game.mode)||(MODES[k]&&!me().badges[k]?quizOf(k)[1]:s.game)}</h3></div><button class="small-btn" onclick="clearTick();clearInterval(dragIv);swingRun++;catchRun++;if(dragKey)document.removeEventListener('keydown',dragKey);if(game.token)delete S.pending[game.token];game=null;render()">離開</button></div>`;
   if(game.phase==='already'){main.innerHTML=`<div class="panel stack">${top}<div class="result stack"><div class="big-stamp">${stampHTML(k,me().badges[k])}</div><h2>這關已經過關囉</h2><div class="muted">同一關不會重複蓋章，去挑戰其他社團吧。</div></div><button class="btn" onclick="game=null;ptab='passport';render()">回到護照</button>${miniOf(k)?`<button class="btn ghost" onclick="game.practice=true;startGame('${miniOf(k)[0]}')">玩小遊戲：${miniOf(k)[1]}</button>`:''}<button class="btn ghost" style="${xpStyle(k)}" onclick="game.practice=true;startGame('expert')">達人挑戰：連續答對幾題</button></div>`;return}
   if(game.phase==='intro'){
-    if(MODES[k]&&!me().badges[k]){const q=quizOf(k),m=miniOf(k);main.innerHTML=`<div class="panel stack">${top}<div style="font-size:17px">${q[2]}</div><div class="muted" style="font-size:15px">答錯沒關係，可以無限次重來。</div>${sayHTML(k,pickOne(SAY[k].intro),1)}<button class="btn" onclick="startGame('quiz')">開始挑戰</button><div class="unlock"><b>過關後解鎖小遊戲</b>${m[1]}</div></div>`;return}
-    if(MODES[k]){main.innerHTML=`<div class="panel stack">${top}<div style="font-size:17px">已解鎖小遊戲！想玩哪一個？（不重複蓋章）</div>${sayHTML(k,pickOne(SAY[k].intro),1)}
+    if(MODES[k]&&!me().badges[k]){const q=quizOf(k),m=miniOf(k);main.innerHTML=`<div class="panel stack">${top}<div style="font-size:17px">${q[2]}</div><div class="muted" style="font-size:15px">答錯沒關係，可以無限次重來。</div>${sayHTML(k,pickOne(SAY[k].intro),1)}<button class="btn" onclick="startGame('quiz')">開始挑戰</button></div>`;return}
+    if(MODES[k]){main.innerHTML=`<div class="panel stack">${top}<div style="font-size:17px">加碼小遊戲，想玩哪一個？（不影響集章）</div>${sayHTML(k,pickOne(SAY[k].intro),1)}
       ${MODES[k].filter(x=>x[0]!=='quiz').map(([m,n,d])=>`<button class="opt" onclick="startGame('${m}')"><b>${n}</b><br><span class="muted" style="font-size:15px">${d}</span></button>`).join('')}</div>`;return}
     main.innerHTML=`<div class="panel stack">${top}<div style="font-size:17px">${s.rule}</div><div class="muted" style="font-size:15px">答錯沒關係，可以無限次重來。</div>${sayHTML(k,pickOne(SAY[k].intro),1)}<button class="btn" onclick="startGame()">開始挑戰</button></div>`;return}
   if((game.phase==='pass'||game.phase==='fail')&&game.practice&&game.mode&&game.mode!=='quiz'&&game.big){ // 小遊戲成績：只留成績和兩顆按鈕
@@ -1318,9 +1348,10 @@ function bindLead(k,after){
 }
 function rPass(top){
   const k=game.k,p=me(),n=cnt(p);
-  main.innerHTML=`<div class="panel stack passp">${top}<div class="result stack"><div class="big-stamp ${game.fresh?'splash':''}" style="--c:${BADGE[k].bg}">${stampHTML(k,p.badges[k],game.fresh?'drop':'')}</div><h2>${game.practice?'再次挑戰成功！':(game.perfect?'三題全對！<br>':'')+ST[k].name+'徽章到手！'}</h2><div class="muted">${game.practice&&game.mode!=='quiz'?'小遊戲':`目前 ${n} / 3${n===3?'，可以去兌換禮物了':''}`}${game.dt?`・${game.dt} 秒奪標（${+game.dt<4?'神速龍':+game.dt<5?'快槳手':'穩穩奪標'}）${+game.dt<=((p.best||{}).dragon||99)?'，個人最佳！':''}`:''}${game.scoreTxt?'・'+game.scoreTxt:''}</div>${n===3&&!game.practice?`<button class="cardlink" onclick="goCard('all')">✨ 做一張集滿紀念小卡 ›</button>`:''}</div>${sayHTML(k,pickOne(SAY[k].pass),1)}${game.practice&&game.mode!=='quiz'?`<button class="btn" onclick="game.fresh=false;startGame(game.mode)">再玩一次，挑戰更高紀錄</button>`:''}${miniOf(k)&&game.mode==='quiz'?`<div class="mrow"><button class="btn unlockb" onclick="game.practice=true;game.fresh=false;startGame('${miniOf(k)[0]}')"><small>解鎖小遊戲</small>${miniOf(k)[1]}</button><button class="btn ghost unlockb" style="${xpStyle(k)}" onclick="game.practice=true;game.fresh=false;startGame('expert')"><small>連續答對幾題</small>達人挑戰</button></div>`:''}
-   <div class="mrow"><button class="btn ghost" onclick="game=null;ptab='clubs';stab.club='${k}';render()">認識${ST[k].name}</button>${S.leads.find(l=>l.pid===S.me&&l.club===k)?`<div class="cdone" style="border-color:${BADGE[k].bg}">已登記想加入 ✓</div>`:`<button class="btn ghost" id="lo" style="${xpStyle(k)}">我有興趣加入</button>`}</div>
-   <button class="btn" onclick="if(game.token){delete S.pending[game.token];save()}game=null;ptab='passport';render()">${n===3?'回到護照看兌換碼':'回到護照'}</button></div>
+  main.innerHTML=`<div class="panel stack passp">${top}<div class="result stack"><div class="big-stamp ${game.fresh?'splash':''}" style="--c:${BADGE[k].bg}">${stampHTML(k,p.badges[k],game.fresh?'drop':'')}</div><h2>${game.practice?'再次挑戰成功！':(game.perfect?'三題全對！<br>':'')+ST[k].name+'徽章到手！'}</h2><div class="muted">${game.practice&&game.mode!=='quiz'?'小遊戲':`目前 ${n} / 3${n===3?'，可以去兌換禮物了':''}`}${game.dt?`・${game.dt} 秒奪標（${+game.dt<4?'神速龍':+game.dt<5?'快槳手':'穩穩奪標'}）${+game.dt<=((p.best||{}).dragon||99)?'，個人最佳！':''}`:''}${game.scoreTxt?'・'+game.scoreTxt:''}</div>${n===3&&!game.practice?`<button class="cardlink" onclick="goCard('all')">✨ 做一張集滿紀念小卡 ›</button>`:''}</div>${sayHTML(k,pickOne(SAY[k].pass),1)}${game.practice&&game.mode!=='quiz'?`<button class="btn" onclick="game.fresh=false;startGame(game.mode)">再玩一次，挑戰更高紀錄</button>`:''}
+   <button class="btn nextb" onclick="if(game.token){delete S.pending[game.token];save()}game=null;ptab='passport';render()">${n===3?(p.redeemed?'回到護照':'集滿了！去兌換台領小禮 ›'):`繼續集章・還差 ${3-n} 關 ›`}</button>
+   <div class="plinks"><button class="small-btn" onclick="game=null;ptab='clubs';stab.club='${k}';render()">認識${ST[k].name}</button>${S.leads.find(l=>l.pid===S.me&&l.club===k)?`<span class="muted" style="font-size:14px">已登記想加入 ✓</span>`:`<button class="small-btn" id="lo">我有興趣加入</button>`}</div>
+   ${miniOf(k)&&game.mode==='quiz'?`<details class="more"><summary>還想多玩？加碼挑戰<small>不影響集章</small></summary><div class="mrow"><button class="btn ghost unlockb" onclick="game.practice=true;game.fresh=false;startGame('${miniOf(k)[0]}')"><small>小遊戲</small>${miniOf(k)[1]}</button><button class="btn ghost unlockb" style="${xpStyle(k)}" onclick="game.practice=true;game.fresh=false;startGame('expert')"><small>連續答對幾題</small>達人挑戰</button></div></details>`:''}</div>
    ${k==='golf'&&puttOn()?`<div class="panel stack" style="margin-top:12px;border-color:var(--golf)" id="putt"></div>`:''}`;
   if($('#lo'))$('#lo').onclick=()=>showLead(k,renderGame);
   if(k==='golf'&&puttOn())puttCard();
@@ -1929,7 +1960,7 @@ function rAdmin(){
        <div style="display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center"><button class="small-btn" id="gm">−10</button><input type="text" id="gt" class="mono" inputmode="numeric" value="${giftTotal()}" aria-label="獎品總數" style="font-size:26px;text-align:center"><button class="small-btn" id="gp">+10</button></div>
        <button class="btn" id="gs">儲存獎品數量</button>
        <div class="muted" style="font-size:14px">已兌換 ${red} 份，剩餘 ${giftTotal()-red} 份。總數不能低於已兌換數量；儲存後兌換台和總覽會同步更新。</div></div>
-       <div class="panel stack"><h3>幸運兒名次</h3>
+       <div class="panel stack" ${LUCKY_ON?'':'hidden'}><h3>幸運兒名次</h3>
         <label for="lk">第幾位集滿有加碼禮（用逗號分開）<input type="text" id="lk" class="mono" inputmode="numeric" value="${luckyList().join(', ')}" style="font-size:20px"></label>
         <button class="btn" id="lks">儲存幸運兒名次</button>
         <div class="muted" style="font-size:14px">目前已有 ${fullCount()} 位集滿。${luckyLine()||'設定的名次都已經產生了。'}幸運兒的護照、兌換台和螢幕都會出現提示，請另外準備加碼禮。</div></div>`;
