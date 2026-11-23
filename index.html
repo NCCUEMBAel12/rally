@@ -1419,6 +1419,7 @@ function rOnboard(){
     main.innerHTML=`<div class="stack">${cover}
      <div class="panel stack">
       ${pre?`<div><div class="lbl" style="color:var(--gold)">當天提早領護照</div><h3>先領好，${startHM()} 開放後到攤位直接開玩</h3></div>`:`<div class="station" style="--c:${s.c};grid-template-columns:44px 1fr"><div class="ic" style="width:44px;height:44px">${ico(ob.station)}</div><div style="min-width:0"><div class="lbl">你掃描的是</div><h3>${s.name}${SUB(ob.station)}攤位</h3></div></div>`}
+      ${ob.from?`<div class="muted" style="font-size:15px;color:var(--ok);font-weight:700">已從創友會系統帶入你的資料${ob.auto?'，正在領取護照…':''}</div>`:''}
       <div class="muted" style="font-size:15px">第一次參加，填好屆別和姓名就能領取護照，不需要帳號密碼。集滿後，屆別和隱藏一個字的姓名（例如 黃Ｏ明）會顯示在現場螢幕。</div>
       <label for="oc">屆別<select class="f" id="oc">${cohortOpts(ob.c||'')}</select></label>
       <label for="on">姓名<input type="text" id="on" autocomplete="name" value="${(ob.n||'').replace(/"/g,'&quot;')}"></label>
@@ -2059,6 +2060,7 @@ async function fireInit(){
     const j=s.data().j||'{}';if(j===fx.setJ)return;fx.setJ=j;let c={};try{c=JSON.parse(j)}catch(e){}
     SETK.forEach(k=>{if(k in c)S[k]=c[k];else delete S[k]});localSave();softRender()},e=>console.warn('[rally] meta',e));
   if(!S.me){try{const qs=await FBS.getDocs(FBS.query(FBS.collection(fx.db,'players'),FBS.where('owner','==',fx.uid)));if(qs.size&&role==='onboard'&&!S.me)await fireAdopt(qs.docs[0].id)}catch(e){console.warn('[rally] adopt',e)}}
+  if(typeof autoJoin==='function')autoJoin(); // 從創友會系統帶屆別姓名進來的人，連線好就自動領護照
   fireMe();await fireStaffStart();firePub(true);if(staffList().length)render();
   if(fx.pend&&S.me&&S.players[S.me]){const e=fx.pend;fx.pend=null;fireEnter(e.k,e.t)}
   setInterval(fireTick,10000);
@@ -2253,9 +2255,22 @@ function softRender(){clearTimeout(srT);srT=setTimeout(()=>{
 
 if(FIRE)fireBoot();
 // 分享連結加 #join：這支手機還沒領過護照就直接進首次領取頁
-function joinGate(){if(location.hash==='#join'&&!S.joined){role='onboard';ob.station='pre';ob.mode='new';$('#role').value='onboard'}}
-joinGate();addEventListener('hashchange',()=>{joinGate();render()});
-render();
+function joinGate(){if(location.hash==='#join'&&!S.joined){role='onboard';ob.station='pre';ob.mode='new';$('#role').value='onboard'}memberGate()}
+// 創友會系統串接：網址帶 #m-{屆別}-{姓名}（兩段各自 encodeURIComponent）→ 自動帶入並領護照，不用再輸入
+const CN_NUM={一:1,二:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10,十一:11,十二:12,十三:13,十四:14};
+function memberCohort(c){c=String(c||'').trim().replace(/\s/g,'');const d=normCohort(c);if(d)return d;
+  if(/師|老師|教授/.test(c))return '師長';if(/班媽|輔導/.test(c))return '班媽/輔導員';if(/嘉賓|來賓|貴賓/.test(c))return '嘉賓';
+  const m=c.match(/(\d{1,2})/);if(m)return normCohort(m[1]);
+  const z=c.replace(/[^一二三四五六七八九十]/g,'');return CN_NUM[z]?normCohort(String(CN_NUM[z])):''}
+function memberGate(){const m=location.hash.match(/^#m-([^-]*)-(.+)$/);if(!m)return;
+  let c='',n='';try{c=decodeURIComponent(m[1]);n=decodeURIComponent(m[2]).trim().slice(0,24)}catch(e){}
+  try{history.replaceState(null,'',location.pathname+location.search)}catch(e){} // 姓名不留在網址列
+  if(S.joined||!n)return; // 這支手機已有護照：直接回到護照，不重領
+  role='onboard';ob.station='pre';ob.mode='new';ob.err='';ob.c=memberCohort(c);ob.n=n;ob.auto=ob.c?1:0;ob.from=1;$('#role').value='onboard';
+  if(!ob.c)ob.err='已帶入你的姓名，請再選一下屆別'}
+function autoJoin(){if(!ob.auto||role!=='onboard'||S.joined||(FIRE&&!fx.ready))return;ob.auto=0;const b=$('#obtn');if(b&&!b.disabled)b.click()}
+joinGate();addEventListener('hashchange',()=>{joinGate();render();autoJoin()});
+render();autoJoin();
 </script>
 
 </body>
