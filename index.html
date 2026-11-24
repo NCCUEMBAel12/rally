@@ -480,6 +480,10 @@ body.fire .role,body.fire .proto{display:none}
 .cpage .ctile b{font-size:14px;line-height:1.25}
 .cfoot{display:flex;flex-direction:column;gap:min(8px,1dvh)}
 .nextb{min-height:58px;font-size:19px}
+.bigtk{font-size:min(30vw,128px);font-weight:800;letter-spacing:.08em;line-height:1;text-align:center;padding:6px 0 2px;color:var(--ink);font-variant-numeric:tabular-nums}
+.hqrow{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center}
+.hqrow .qrbox{margin:0;padding:8px}
+.hqrow .qrbox img,.hqrow .qrbox canvas{width:132px!important;height:auto!important}
 .stv{gap:10px}
 .stv .chip.done{background:var(--ok);color:#fff;font-size:16px;font-weight:700;padding:5px 14px;box-shadow:0 2px 6px -2px rgb(0 0 0 / .35)}
 .stv .sdone{border-color:var(--ok);border-width:1.5px}
@@ -1493,7 +1497,7 @@ function rHost(){
   const k=S.hostStation,s=ST[k],mode=k==='golf'&&puttOn()&&stab.host==='scan'?'scan':'qr';
   const pend=Object.entries(S.pending).filter(([t,v])=>v.k===k);
   main.innerHTML=`<div class="stack">
-   ${roleBar('關主・'+s.name,k==='golf'&&puttOn()?'出示 QR、確認推桿有沒有進':'出示 QR 給參加者掃就好',BADGE[k].bg,k)}
+   ${roleBar('關主・'+s.name,k==='golf'&&puttOn()?'出示 QR、確認推桿有沒有進':(FIRE?'把挑戰碼給參加者看就好':'出示 QR 給參加者掃就好'),BADGE[k].bg,k)}
    ${k==='golf'&&puttOn()?`<div class="subtabs" style="margin:0">${[['qr','攤位 QR'],['scan','推桿確認'+(pend.length?`（${pend.length}）`:'')]].map(([m,l])=>`<button aria-selected="${m===mode}" data-hm="${m}">${l}</button>`).join('')}</div>`:''}
    <div class="panel stack" style="--c:${s.c}" id="hp"></div>
    ${heatCard(k)}
@@ -1507,12 +1511,15 @@ function rHost(){
   main.querySelectorAll('[data-hm]').forEach(b=>b.onclick=()=>{stab.host=b.dataset.hm;stab.hostMsg=null;render()});
   const hp=$('#hp');
   if(mode==='qr'){
-    hp.innerHTML=`<div style="font-weight:700;font-size:19px;text-align:center">${FIRE?'請參加者輸入下方 4 碼挑戰碼':'請用手機相機掃這個 QR'}</div><div class="qrbox" id="hq"></div><div class="countdown"><div id="cd"></div></div>
-     <div style="display:flex;justify-content:space-between;font-size:15px"><span class="muted">每 30 秒換碼；${FIRE?'輸入一次':'掃過一次'}整場有效</span><span class="mono" id="tk" ${FIRE?'style="font-size:34px;font-weight:700;letter-spacing:.14em;line-height:1"':''}></span></div>
+    hp.innerHTML=FIRE?`<div style="font-weight:700;font-size:19px;text-align:center">請參加者輸入這 4 個數字</div>
+     <div class="mono bigtk" id="tk" aria-label="挑戰碼"></div><div class="countdown"><div id="cd"></div></div>
+     <div class="hqrow"><div class="qrbox" id="hq"></div><div class="muted" style="font-size:15px">也可以用手機相機掃這個 QR Code。<br>每 30 秒換碼；輸入一次整場有效</div></div>`
+    :`<div style="font-weight:700;font-size:19px;text-align:center">請用手機相機掃這個 QR</div><div class="qrbox" id="hq"></div><div class="countdown"><div id="cd"></div></div>
+     <div style="display:flex;justify-content:space-between;font-size:15px"><span class="muted">每 30 秒換碼；掃過一次整場有效</span><span class="mono" id="tk"></span></div>
      ${FIRE?'':'<button class="btn ghost" id="simscan">原型：模擬參加者掃這張碼</button>'}`;
     if($('#simscan'))$('#simscan').onclick=()=>{role='player';$('#role').value='player';scan(k)};
     const tick=()=>{const tk=token(k),sec=30-Math.floor(Date.now()/1000)%30;$('#cd').style.width=(sec/30*100)+'%';
-      if($('#tk').textContent!==tk){$('#tk').textContent=tk;qr($('#hq'),FIRE?location.origin+location.pathname+`?s=${k}&t=${tk}`:`https://rally.example/play?s=${k}&t=${tk}`,220)}};
+      if($('#tk').textContent!==tk){$('#tk').textContent=tk;qr($('#hq'),FIRE?location.origin+location.pathname+`?s=${k}&t=${tk}`:`https://rally.example/play?s=${k}&t=${tk}`,FIRE?132:220)}};
     tick();ticker=setInterval(tick,1000);return;
   }
   const sel=stab.hostSel&&S.pending[stab.hostSel]?stab.hostSel:null;
