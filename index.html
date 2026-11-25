@@ -1419,6 +1419,12 @@ function rOnboard(){
   const cover=`<div class="cover"><span class="emb" aria-hidden="true"></span><div class="lbl" style="color:inherit;opacity:.75">創友會會員大會暨理事長交接典禮</div><div class="cover-t" style="font-size:36px">社團巡禮護照</div><div class="muted" style="color:inherit;opacity:.75;font-size:15px">三個社團、三枚徽章，集滿換限量小禮，送完為止<br>活動時間 ${startHM()}–${endHM()}</div>
     <img class="banner" src="${BANNER}" alt="三個社團的吉祥物：高球會老鷹、桃園幫桃子、創友一條龍小龍"></div>`;
   const demo=FIRE?'':`<div class="lbl">預覽：切換進入方式</div><div class="chips"><button class="small-btn" data-s="pre" ${pre?'style="border-color:var(--ink);font-weight:700"':''}>當天提早領</button>${KEYS.map(k=>`<button class="small-btn" data-s="${k}" ${k===ob.station?'style="border-color:var(--ink);font-weight:700"':''}>${ST[k].name}</button>`).join('')}</div>`;
+  if(!joinOpen()){ // 還沒開放領護照：只顯示預告，工作人員照常登入
+    main.innerHTML=`<div class="stack">${cover}
+     ${fx.metaLoaded?`<div class="panel stack" style="text-align:center"><div class="lbl" style="color:var(--gold)">尚未開放</div><h3>護照 12/16 活動當天開放領取</h3>
+      <div class="muted" style="font-size:15px">當天再打開這個連結，選屆別、填姓名就能領護照，到攤位開始闖關。</div></div>`:`<div class="panel stack" style="text-align:center"><div class="muted" style="font-size:16px">連線中…</div></div>`}
+     <button class="stafflink" id="ostaff">工作人員登入</button></div>`;
+    $('#ostaff').onclick=()=>{pin.v='';pin.err='';role='staffLogin';render()};return}
   if(ob.mode==='new'){
     main.innerHTML=`<div class="stack">${cover}
      <div class="panel stack">
@@ -1744,6 +1750,7 @@ function gameBoardHTML(k){
       ${B.mine>=3?`<div class="gb-r me"><span class="medal" style="background:var(--ink);width:22px;height:22px;font-size:12px">${B.mine+1}</span><span class="gb-n">你</span><span class="gb-v">${B.rows[B.mine].v}<small>${B.unit}</small></span></div>`:''}
       ${B.mine<0?(open?`<button class="small-btn" onclick="playMini('${k}','${mode}')">來挑戰 ›</button>`:`<div class="muted" style="font-size:13px">過關後解鎖</div>`):B.mine>0?`<button class="small-btn" onclick="playMini('${k}','${mode}')">再挑戰 ›</button>`:''}</div>`}).join('')}
 const regOn=()=>!!S.regOn;
+const joinOpen=()=>!FIRE||!!S.joinOpen; // 正式版：管理後台打開「開放領護照」之後才能領（試玩版不受限）
 const screenOn=()=>!!S.screenOn;
 const DEF_PINS={golf:'1101',tao:'1102',dragon:'1103',redeem:'2200',admin:'9900'}; // 原型預設 PIN：三個攤位各一組＋兌換台＋管理後台，管理後台可改
 const pinOf=k=>((S.pins||{})[k])||DEF_PINS[k];
@@ -1997,7 +2004,7 @@ function rAdmin(){
     }else if(st==='time'){
       const nowT=Date.now(),on=!!(S.startAt||S.endAt),at=v=>{const a=v.split(':'),d=new Date();d.setHours(+a[0],+a[1],0,0);return d.getTime()};
       const state=!on?'倒數尚未啟用':S.startAt&&nowT<S.startAt?`已啟用，距離開放還有 ${fmtLeft(S.startAt-nowT)}`:S.endAt&&nowT<S.endAt?`進行中，距離結束還有 ${fmtLeft(S.endAt-nowT)}`:'今天的活動時間已結束';
-      ad.innerHTML=`${tabs}<div class="panel stack"><h3>活動時間</h3>
+      ad.innerHTML=`${tabs}${FIRE?`<div class="panel stack" style="border:2px solid ${joinOpen()?'var(--ok)':'var(--gold)'}"><div class="who"><div><h3>開放領護照</h3><div class="muted" style="font-size:14px">${joinOpen()?'目前開放：打開連結就能領護照':'目前關閉：打開連結只會看到「12/16 當天開放領取」，工作人員登入不受影響'}</div></div><button class="small-btn" id="jot">${joinOpen()?'關閉':'開放'}</button></div></div>`:''}<div class="panel stack"><h3>活動時間</h3>
        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label for="stt">開放<input type="time" id="stt" value="${startHM()}" style="font-size:20px"></label><label for="et">結束<input type="time" id="et" value="${endHM()}" style="font-size:20px"></label></div>
        <button class="btn" id="es">${on?'更新時間':'儲存並啟用倒數（今天）'}</button>
        <div style="font-weight:700">${state}</div>
@@ -2010,6 +2017,7 @@ function rAdmin(){
       ad.querySelectorAll('[data-em]').forEach(b=>b.onclick=()=>{S.startAt=null;S.endAt=Date.now()+b.dataset.em*60000;save();toast(b.dataset.em+' 分鐘後結束');render()});
       ad.querySelectorAll('[data-sm]').forEach(b=>b.onclick=()=>{S.startAt=Date.now()+b.dataset.sm*60000;S.endAt=S.startAt+70*60000;save();toast('1 分鐘後開放');render()});
       if($('#ec'))$('#ec').onclick=()=>{S.startAt=S.endAt=null;save();toast('已停用倒數');render()};
+      if($('#jot'))$('#jot').onclick=()=>{S.joinOpen=!S.joinOpen;save();toast(S.joinOpen?'已開放領護照':'已關閉領護照');render()};
     }else{
       ad.innerHTML=`${tabs}<div class="panel stack"><h3>遊戲規則</h3>
        <div style="font-size:15px" class="stack"><div>活動時間：${startHM()} 開放，${endHM()} 結束</div><div>三關都是：第一次一律先問答（3 題對 2 題）過關拿徽章；過關後解鎖小遊戲和達人挑戰（題庫連續作答，答錯就結束），純娛樂、不重複蓋章</div><div>高球會小遊戲：切球挑戰（照目標碼數上桿、桿面擺正，3 球 2 球上果嶺）${puttOn()?'；另可加碼實體推桿（隨機 2／3／5 碼）':''}</div><div>桃園幫小遊戲：接桃子（${CATCH_SEC} 秒內接 ${CATCH_GOAL} 顆，爛桃子扣 1 顆）</div><div>創友一條龍小遊戲：雙手同步划龍舟，划到終點比秒數，和兩艘電腦對手比名次；完美同步一槳衝更遠</div><div>攤位 QR 每 30 秒換碼，掃碼當下接受目前和上一個碼（最長 60 秒）</div><div>掃過一次，這一關整場有效：重玩、換玩法都不用重掃</div></div></div>
@@ -2035,7 +2043,7 @@ function rAdmin(){
    只有在網站版（config.js 設定 RALLY_MODE='fire'）才會啟用；預覽版維持單機原型。
    資料分工：自己的護照即時同步；排行榜讀工作人員手機定時發布的快照；兌換台／後台／幹部的手機讀全部護照。 */
 const SYNCK=['badges','best','perfect','dragonT','fullAt','pre'];           // 護照裡會同步到伺服器的欄位（entered 由 fireEnter 單獨寫）
-const SETK=['startAt','endAt','startHM','endHM','giftTotal','lucky','regOn','screenOn','links','customQ']; // 全場共用的活動設定
+const SETK=['startAt','endAt','startHM','endHM','giftTotal','lucky','regOn','screenOn','joinOpen','links','customQ']; // 全場共用的活動設定
 const mkCode=()=>String(Math.floor(Math.random()*10000)).padStart(4,'0'); // 挑戰碼：4 位數字
 const okCode=v=>/^\d{4}$/.test(v||'');
 const FD=(...p)=>FBS.doc(fx.db,...p);
@@ -2063,9 +2071,12 @@ async function fireInit(){
     fx.uid=fx.auth.currentUser.uid;fx.ready=true;
   }catch(e){console.error('[rally] 連線失敗',e);if(!fx.warned){fx.warned=1;toast('連不上伺服器，請檢查網路')}setTimeout(fireInit,5000);return}
   // 活動設定：全場共用，管理後台改了大家都會收到
-  FBS.onSnapshot(FD('meta','config'),s=>{fx.metaLoaded=true;if(!s.exists()){fx.setJ=null;return}
-    const j=s.data().j||'{}';if(j===fx.setJ)return;fx.setJ=j;let c={};try{c=JSON.parse(j)}catch(e){}
-    SETK.forEach(k=>{if(k in c)S[k]=c[k];else delete S[k]});localSave();softRender()},e=>console.warn('[rally] meta',e));
+  FBS.onSnapshot(FD('meta','config'),s=>{const first=!fx.metaLoaded,was=!!S.joinOpen;fx.metaLoaded=true;
+    // 領護照頁不會被一般的自動重畫更新，所以「開放領護照」一有變化就直接重畫
+    const gate=()=>{if(role==='onboard'&&(first||!!S.joinOpen!==was)){render();if(typeof autoJoin==='function')autoJoin()}};
+    if(!s.exists()){fx.setJ=null;gate();return}
+    const j=s.data().j||'{}';if(j===fx.setJ){gate();return}fx.setJ=j;let c={};try{c=JSON.parse(j)}catch(e){}
+    SETK.forEach(k=>{if(k in c)S[k]=c[k];else delete S[k]});localSave();softRender();gate()},e=>console.warn('[rally] meta',e));
   if(!S.me){try{const qs=await FBS.getDocs(FBS.query(FBS.collection(fx.db,'players'),FBS.where('owner','==',fx.uid)));if(qs.size&&role==='onboard'&&!S.me)await fireAdopt(qs.docs[0].id)}catch(e){console.warn('[rally] adopt',e)}}
   if(typeof autoJoin==='function')autoJoin(); // 從創友會系統帶屆別姓名進來的人，連線好就自動領護照
   fireMe();await fireStaffStart();firePub(true);if(staffList().length)render();
@@ -2275,7 +2286,7 @@ function memberGate(){const m=location.hash.match(/^#m-([^-]*)-(.+)$/);if(!m)ret
   if(S.joined||!n)return; // 這支手機已有護照：直接回到護照，不重領
   role='onboard';ob.station='pre';ob.mode='new';ob.err='';ob.c=memberCohort(c);ob.n=n;ob.auto=ob.c?1:0;ob.from=1;$('#role').value='onboard';
   if(!ob.c)ob.err='已帶入你的姓名，請再選一下屆別'}
-function autoJoin(){if(!ob.auto||role!=='onboard'||S.joined||(FIRE&&!fx.ready))return;ob.auto=0;const b=$('#obtn');if(b&&!b.disabled)b.click()}
+function autoJoin(){if(!ob.auto||role!=='onboard'||S.joined||(FIRE&&!fx.ready)||!joinOpen())return;ob.auto=0;const b=$('#obtn');if(b&&!b.disabled)b.click()}
 joinGate();addEventListener('hashchange',()=>{joinGate();render();autoJoin()});
 render();autoJoin();
 </script>
