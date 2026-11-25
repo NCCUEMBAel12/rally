@@ -480,6 +480,11 @@ body.fire .role,body.fire .proto{display:none}
 .cpage .ctile b{font-size:14px;line-height:1.25}
 .cfoot{display:flex;flex-direction:column;gap:min(8px,1dvh)}
 .nextb{min-height:58px;font-size:19px}
+.cyh{display:grid;gap:8px;padding:12px;border:2px solid var(--gold);border-radius:14px;background:#FFF9E8}
+.cyh b{display:block;font-size:17px}
+.cyh span{font-size:14px;color:var(--muted)}
+.cyh .btn{display:grid;place-items:center;min-height:50px;text-decoration:none}
+details.selfill summary{font-size:15px}
 .bigtk{font-size:min(30vw,128px);font-weight:800;letter-spacing:.08em;line-height:1;text-align:center;padding:6px 0 2px;color:var(--ink);font-variant-numeric:tabular-nums}
 .hqrow{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center}
 .hqrow .qrbox{margin:0;padding:8px}
@@ -1430,13 +1435,17 @@ function rOnboard(){
      <div class="panel stack">
       ${pre?`<div><div class="lbl" style="color:var(--gold)">當天提早領護照</div><h3>先領好，${startHM()} 開放後到攤位直接開玩</h3></div>`:`<div class="station" style="--c:${s.c};grid-template-columns:44px 1fr"><div class="ic" style="width:44px;height:44px">${ico(ob.station)}</div><div style="min-width:0"><div class="lbl">你掃描的是</div><h3>${s.name}${SUB(ob.station)}攤位</h3></div></div>`}
       ${ob.from?`<div class="muted" style="font-size:15px;color:var(--ok);font-weight:700">已從創友會系統帶入你的資料${ob.auto?'，正在領取護照…':''}</div>`:''}
-      <div class="muted" style="font-size:15px">第一次參加，填好屆別和姓名就能領取護照，不需要帳號密碼。集滿後，屆別和隱藏一個字的姓名（例如 黃Ｏ明）會顯示在現場螢幕。</div>
+      ${!ob.from&&S.cyhUrl?`<div class="cyh"><div><b>還沒報到嗎？</b><span>先到創友會系統報到，屆別姓名會自動帶回來，不用自己填</span></div><a class="btn" href="${escA(S.cyhUrl)}" target="_blank" rel="noopener">前往創友會報到 ↗</a></div>
+      <details class="more selfill" ${ob.err||ob.c||ob.n||ob.open?'open':''}><summary>師長、嘉賓或無法登入？自己填寫</summary><div class="stack" style="padding-bottom:12px">`:''}
+      <div class="muted" style="font-size:15px">${!ob.from&&S.cyhUrl?'':'第一次參加，'}填好屆別和姓名就能領取護照，不需要帳號密碼。集滿後，屆別和隱藏一個字的姓名（例如 黃Ｏ明）會顯示在現場螢幕。</div>
       <label for="oc">屆別<select class="f" id="oc">${cohortOpts(ob.c||'')}</select></label>
       <label for="on">姓名<input type="text" id="on" autocomplete="name" value="${(ob.n||'').replace(/"/g,'&quot;')}"></label>
       ${err}
       <button class="btn" id="obtn">${pre?'領取護照':'領取護照，開始挑戰'}</button>
       <button class="small-btn" id="orc">換了手機或瀏覽器？找回我的護照</button>
+      ${!ob.from&&S.cyhUrl?'</div></details>':''}
      </div>${FIRE?`<div class="muted" style="font-size:14px;text-align:center">已經領過護照？請回到原本打開護照的地方（例如 LINE），不用重新領取。</div><button class="stafflink" id="ostaff">工作人員登入</button>`:''}${demo}</div>`;
+    {const sf=main.querySelector('.selfill');if(sf)sf.ontoggle=()=>{ob.open=sf.open?1:0}}
     $('#obtn').onclick=()=>{const cohort=$('#oc').value,name=$('#on').value.trim();
       if(!cohort){ob.err='請選擇屆別';return rOnboard()}
       if(!name){ob.err='請填姓名';return rOnboard()}
@@ -2004,7 +2013,9 @@ function rAdmin(){
     }else if(st==='time'){
       const nowT=Date.now(),on=!!(S.startAt||S.endAt),at=v=>{const a=v.split(':'),d=new Date();d.setHours(+a[0],+a[1],0,0);return d.getTime()};
       const state=!on?'倒數尚未啟用':S.startAt&&nowT<S.startAt?`已啟用，距離開放還有 ${fmtLeft(S.startAt-nowT)}`:S.endAt&&nowT<S.endAt?`進行中，距離結束還有 ${fmtLeft(S.endAt-nowT)}`:'今天的活動時間已結束';
-      ad.innerHTML=`${tabs}${FIRE?`<div class="panel stack" style="border:2px solid ${joinOpen()?'var(--ok)':'var(--gold)'}"><div class="who"><div><h3>開放領護照</h3><div class="muted" style="font-size:14px">${joinOpen()?'目前開放：打開連結就能領護照':'目前關閉：打開連結只會看到「12/16 當天開放領取」，工作人員登入不受影響'}</div></div><button class="small-btn" id="jot">${joinOpen()?'關閉':'開放'}</button></div></div>`:''}<div class="panel stack"><h3>活動時間</h3>
+      ad.innerHTML=`${tabs}${FIRE?`<div class="panel stack" style="border:2px solid ${joinOpen()?'var(--ok)':'var(--gold)'}"><div class="who"><div><h3>開放領護照</h3><div class="muted" style="font-size:14px">${joinOpen()?'目前開放：打開連結就能領護照':'目前關閉：打開連結只會看到「12/16 當天開放領取」，工作人員登入不受影響'}</div></div><button class="small-btn" id="jot">${joinOpen()?'關閉':'開放'}</button></div></div>
+       <div class="panel stack"><h3>創友會系統報到連結</h3><div class="muted" style="font-size:14px">${S.cyhUrl?'已設定：領護照頁會出現「還沒報到嗎？前往創友會報到」按鈕':'未設定：領護照頁不顯示報到按鈕。貼上創友會系統當日活動（報到）的連結'}</div>
+        <input type="url" id="cyu" inputmode="url" placeholder="https://liff.line.me/…" value="${escA(S.cyhUrl||'')}" style="font-size:15px"><div style="display:flex;gap:8px"><button class="btn" id="cys" style="flex:1">儲存連結</button>${S.cyhUrl?'<button class="btn ghost" id="cyx">清除</button>':''}</div></div>`:''}<div class="panel stack"><h3>活動時間</h3>
        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label for="stt">開放<input type="time" id="stt" value="${startHM()}" style="font-size:20px"></label><label for="et">結束<input type="time" id="et" value="${endHM()}" style="font-size:20px"></label></div>
        <button class="btn" id="es">${on?'更新時間':'儲存並啟用倒數（今天）'}</button>
        <div style="font-weight:700">${state}</div>
@@ -2017,6 +2028,8 @@ function rAdmin(){
       ad.querySelectorAll('[data-em]').forEach(b=>b.onclick=()=>{S.startAt=null;S.endAt=Date.now()+b.dataset.em*60000;save();toast(b.dataset.em+' 分鐘後結束');render()});
       ad.querySelectorAll('[data-sm]').forEach(b=>b.onclick=()=>{S.startAt=Date.now()+b.dataset.sm*60000;S.endAt=S.startAt+70*60000;save();toast('1 分鐘後開放');render()});
       if($('#ec'))$('#ec').onclick=()=>{S.startAt=S.endAt=null;save();toast('已停用倒數');render()};
+      if($('#cys'))$('#cys').onclick=()=>{const v=$('#cyu').value.trim();if(!/^https:\/\/\S+$/.test(v)){toast('請貼上 https:// 開頭的完整連結');return}S.cyhUrl=v;save();toast('已儲存報到連結');render()};
+      if($('#cyx'))$('#cyx').onclick=()=>{delete S.cyhUrl;save();toast('已清除報到連結');render()};
       if($('#jot'))$('#jot').onclick=()=>{S.joinOpen=!S.joinOpen;save();toast(S.joinOpen?'已開放領護照':'已關閉領護照');render()};
     }else{
       ad.innerHTML=`${tabs}<div class="panel stack"><h3>遊戲規則</h3>
@@ -2043,7 +2056,7 @@ function rAdmin(){
    只有在網站版（config.js 設定 RALLY_MODE='fire'）才會啟用；預覽版維持單機原型。
    資料分工：自己的護照即時同步；排行榜讀工作人員手機定時發布的快照；兌換台／後台／幹部的手機讀全部護照。 */
 const SYNCK=['badges','best','perfect','dragonT','fullAt','pre'];           // 護照裡會同步到伺服器的欄位（entered 由 fireEnter 單獨寫）
-const SETK=['startAt','endAt','startHM','endHM','giftTotal','lucky','regOn','screenOn','joinOpen','links','customQ']; // 全場共用的活動設定
+const SETK=['startAt','endAt','startHM','endHM','giftTotal','lucky','regOn','screenOn','joinOpen','cyhUrl','links','customQ']; // 全場共用的活動設定
 const mkCode=()=>String(Math.floor(Math.random()*10000)).padStart(4,'0'); // 挑戰碼：4 位數字
 const okCode=v=>/^\d{4}$/.test(v||'');
 const FD=(...p)=>FBS.doc(fx.db,...p);
