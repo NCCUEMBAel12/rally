@@ -1435,15 +1435,15 @@ function rOnboard(){
      <div class="panel stack">
       ${pre?`<div><div class="lbl" style="color:var(--gold)">當天提早領護照</div><h3>先領好，${startHM()} 開放後到攤位直接開玩</h3></div>`:`<div class="station" style="--c:${s.c};grid-template-columns:44px 1fr"><div class="ic" style="width:44px;height:44px">${ico(ob.station)}</div><div style="min-width:0"><div class="lbl">你掃描的是</div><h3>${s.name}${SUB(ob.station)}攤位</h3></div></div>`}
       ${ob.from?`<div class="muted" style="font-size:15px;color:var(--ok);font-weight:700">已從創友會系統帶入你的資料${ob.auto?'，正在領取護照…':''}</div>`:''}
-      ${!ob.from&&S.cyhUrl?`<div class="cyh"><div><b>還沒報到嗎？</b><span>先到創友會系統報到，屆別姓名會自動帶回來，不用自己填</span></div><a class="btn" href="${escA(S.cyhUrl)}" target="_blank" rel="noopener">前往創友會報到 ↗</a></div>
+      ${!ob.from&&cyhUrl()?`<div class="cyh"><div><b>還沒報到嗎？</b><span>先到創友會系統報到，屆別姓名會自動帶回來，不用自己填</span></div><a class="btn" href="${escA(cyhUrl())}" target="_blank" rel="noopener">前往創友會報到 ↗</a></div>
       <details class="more selfill" ${ob.err||ob.c||ob.n||ob.open?'open':''}><summary>師長、嘉賓或無法登入？自己填寫</summary><div class="stack" style="padding-bottom:12px">`:''}
-      <div class="muted" style="font-size:15px">${!ob.from&&S.cyhUrl?'':'第一次參加，'}填好屆別和姓名就能領取護照，不需要帳號密碼。集滿後，屆別和隱藏一個字的姓名（例如 黃Ｏ明）會顯示在現場螢幕。</div>
+      <div class="muted" style="font-size:15px">${!ob.from&&cyhUrl()?'':'第一次參加，'}填好屆別和姓名就能領取護照，不需要帳號密碼。集滿後，屆別和隱藏一個字的姓名（例如 黃Ｏ明）會顯示在現場螢幕。</div>
       <label for="oc">屆別<select class="f" id="oc">${cohortOpts(ob.c||'')}</select></label>
       <label for="on">姓名<input type="text" id="on" autocomplete="name" value="${(ob.n||'').replace(/"/g,'&quot;')}"></label>
       ${err}
       <button class="btn" id="obtn">${pre?'領取護照':'領取護照，開始挑戰'}</button>
       <button class="small-btn" id="orc">換了手機或瀏覽器？找回我的護照</button>
-      ${!ob.from&&S.cyhUrl?'</div></details>':''}
+      ${!ob.from&&cyhUrl()?'</div></details>':''}
      </div>${FIRE?`<div class="muted" style="font-size:14px;text-align:center">已經領過護照？請回到原本打開護照的地方（例如 LINE），不用重新領取。</div><button class="stafflink" id="ostaff">工作人員登入</button>`:''}${demo}</div>`;
     {const sf=main.querySelector('.selfill');if(sf)sf.ontoggle=()=>{ob.open=sf.open?1:0}}
     $('#obtn').onclick=()=>{const cohort=$('#oc').value,name=$('#on').value.trim();
@@ -1759,6 +1759,8 @@ function gameBoardHTML(k){
       ${B.mine>=3?`<div class="gb-r me"><span class="medal" style="background:var(--ink);width:22px;height:22px;font-size:12px">${B.mine+1}</span><span class="gb-n">你</span><span class="gb-v">${B.rows[B.mine].v}<small>${B.unit}</small></span></div>`:''}
       ${B.mine<0?(open?`<button class="small-btn" onclick="playMini('${k}','${mode}')">來挑戰 ›</button>`:`<div class="muted" style="font-size:13px">過關後解鎖</div>`):B.mine>0?`<button class="small-btn" onclick="playMini('${k}','${mode}')">再挑戰 ›</button>`:''}</div>`}).join('')}
 const regOn=()=>!!S.regOn;
+const CYH_URL='https://alumni-site-1045151647279.asia-east1.run.app/events/093501da3c7342c9b063?v=2ami5u'; // 創友會系統 12/16 活動頁（預設值，後台可改）
+const cyhUrl=()=>S.cyhUrl===''?'':(S.cyhUrl||CYH_URL);
 const joinOpen=()=>!FIRE||!!S.joinOpen; // 正式版：管理後台打開「開放領護照」之後才能領（試玩版不受限）
 const screenOn=()=>!!S.screenOn;
 const DEF_PINS={golf:'1101',tao:'1102',dragon:'1103',redeem:'2200',admin:'9900'}; // 原型預設 PIN：三個攤位各一組＋兌換台＋管理後台，管理後台可改
@@ -2014,8 +2016,8 @@ function rAdmin(){
       const nowT=Date.now(),on=!!(S.startAt||S.endAt),at=v=>{const a=v.split(':'),d=new Date();d.setHours(+a[0],+a[1],0,0);return d.getTime()};
       const state=!on?'倒數尚未啟用':S.startAt&&nowT<S.startAt?`已啟用，距離開放還有 ${fmtLeft(S.startAt-nowT)}`:S.endAt&&nowT<S.endAt?`進行中，距離結束還有 ${fmtLeft(S.endAt-nowT)}`:'今天的活動時間已結束';
       ad.innerHTML=`${tabs}${FIRE?`<div class="panel stack" style="border:2px solid ${joinOpen()?'var(--ok)':'var(--gold)'}"><div class="who"><div><h3>開放領護照</h3><div class="muted" style="font-size:14px">${joinOpen()?'目前開放：打開連結就能領護照':'目前關閉：打開連結只會看到「12/16 當天開放領取」，工作人員登入不受影響'}</div></div><button class="small-btn" id="jot">${joinOpen()?'關閉':'開放'}</button></div></div>
-       <div class="panel stack"><h3>創友會系統報到連結</h3><div class="muted" style="font-size:14px">${S.cyhUrl?'已設定：領護照頁會出現「還沒報到嗎？前往創友會報到」按鈕':'未設定：領護照頁不顯示報到按鈕。貼上創友會系統當日活動（報到）的連結'}</div>
-        <input type="url" id="cyu" inputmode="url" placeholder="https://liff.line.me/…" value="${escA(S.cyhUrl||'')}" style="font-size:15px"><div style="display:flex;gap:8px"><button class="btn" id="cys" style="flex:1">儲存連結</button>${S.cyhUrl?'<button class="btn ghost" id="cyx">清除</button>':''}</div></div>`:''}<div class="panel stack"><h3>活動時間</h3>
+       <div class="panel stack"><h3>創友會系統報到連結</h3><div class="muted" style="font-size:14px">${cyhUrl()?'已設定：領護照頁會出現「還沒報到嗎？前往創友會報到」按鈕':'已清除：領護照頁不顯示報到按鈕。貼上創友會系統當日活動（報到）的連結即可恢復'}</div>
+        <input type="url" id="cyu" inputmode="url" placeholder="https://liff.line.me/…" value="${escA(cyhUrl())}" style="font-size:15px"><div style="display:flex;gap:8px"><button class="btn" id="cys" style="flex:1">儲存連結</button>${cyhUrl()?'<button class="btn ghost" id="cyx">清除</button>':''}</div></div>`:''}<div class="panel stack"><h3>活動時間</h3>
        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label for="stt">開放<input type="time" id="stt" value="${startHM()}" style="font-size:20px"></label><label for="et">結束<input type="time" id="et" value="${endHM()}" style="font-size:20px"></label></div>
        <button class="btn" id="es">${on?'更新時間':'儲存並啟用倒數（今天）'}</button>
        <div style="font-weight:700">${state}</div>
@@ -2029,7 +2031,7 @@ function rAdmin(){
       ad.querySelectorAll('[data-sm]').forEach(b=>b.onclick=()=>{S.startAt=Date.now()+b.dataset.sm*60000;S.endAt=S.startAt+70*60000;save();toast('1 分鐘後開放');render()});
       if($('#ec'))$('#ec').onclick=()=>{S.startAt=S.endAt=null;save();toast('已停用倒數');render()};
       if($('#cys'))$('#cys').onclick=()=>{const v=$('#cyu').value.trim();if(!/^https:\/\/\S+$/.test(v)){toast('請貼上 https:// 開頭的完整連結');return}S.cyhUrl=v;save();toast('已儲存報到連結');render()};
-      if($('#cyx'))$('#cyx').onclick=()=>{delete S.cyhUrl;save();toast('已清除報到連結');render()};
+      if($('#cyx'))$('#cyx').onclick=()=>{S.cyhUrl='';save();toast('已清除報到連結');render()};
       if($('#jot'))$('#jot').onclick=()=>{S.joinOpen=!S.joinOpen;save();toast(S.joinOpen?'已開放領護照':'已關閉領護照');render()};
     }else{
       ad.innerHTML=`${tabs}<div class="panel stack"><h3>遊戲規則</h3>
